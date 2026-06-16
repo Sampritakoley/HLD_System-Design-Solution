@@ -540,7 +540,7 @@
 <div class="main">
   <div class="count-bar" id="countBar">Showing <strong id="shownCount">200</strong> of 200 questions</div>
   <div class="grid" id="grid">
-    <div class="empty-state" id="emptyState">
+    <div class="empty-state" id="emptyState" style="display:none">
       <div class="emoji">🔭</div>
       <p>No questions match your filters.<br>Try adjusting or clearing them.</p>
     </div>
@@ -947,9 +947,9 @@ function render() {
   badge.classList.toggle('visible', ac > 0);
 
   if(list.length === 0) {
-    empty.classList.add('visible');
+    empty.style.display = 'block';
   } else {
-    empty.classList.remove('visible');
+    empty.style.display = 'none';
     list.forEach((q, i) => {
       const delay = Math.min(i * 30, 600);
       grid.appendChild(buildCard(q, delay));
@@ -999,7 +999,12 @@ document.getElementById('resetBtn').addEventListener('click', () => {
   }
 });
 
-render();
+// Ensure DOM is ready before rendering
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', render);
+} else {
+  render();
+}
 </script>
 </body>
 </html>
