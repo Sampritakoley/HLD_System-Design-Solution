@@ -7,9 +7,10 @@
 
 ---
 
-## 🔗 Solutions  TwitterNewsFeed
-👉 **[Design Instagram / Photo Sharing Platform](https://sampritakoley.github.io/HLD_System-Design-Solution/PhotoSharingSysDesign/)**
-👉 **[Design Twitter/X News Feed Platform](https://sampritakoley.github.io/HLD_System-Design-Solution/TwitterNewsFeed/)**
+**🔗 Solutions**
+
+<sub>👉 <a href="https://sampritakoley.github.io/HLD_System-Design-Solution/PhotoSharingSysDesign/">Design Instagram / Photo Sharing Platform</a></sub><br>
+<sub>👉 <a href="https://sampritakoley.github.io/HLD_System-Design-Solution/TwitterNewsFeed/">Design Twitter/X News Feed Platform</a></sub>
 ---
 
 ## 📚 Categories Covered
