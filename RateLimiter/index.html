@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Designing a Rate Limiter — System Design Case Study</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--paper:#FAF8F4;--paper-raised:#FFFFFF;--ink:#16181C;--ink-soft:#52524E;--ink-faint:#8A887F;--line:#DEDAD0;--line-strong:#C7C2B5;--signal:#D85A30;--signal-soft:#FAECE7;--signal-deep:#4A1B0C;--mono:'JetBrains Mono',monospace;--sans:'Inter',sans-serif}
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased}
+  a{color:var(--signal);text-decoration:none}
+  a:hover{text-decoration:underline}
+  a:focus-visible,button:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+  .author-badge{position:fixed;top:18px;right:24px;z-index:50;display:flex;align-items:center;background:var(--signal);border:1px solid var(--signal);padding:8px 16px;border-radius:999px;box-shadow:0 2px 14px rgba(216,90,48,0.35)}
+  .author-badge .author-text{display:flex;flex-direction:column;line-height:1.3}
+  .author-badge .author-name{font-size:12.5px;font-weight:600;color:#fff}
+  .author-badge .author-links{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10.5px}
+  .author-badge .author-links a{color:rgba(255,255,255,0.75);text-decoration:none}
+  .author-badge .author-links a:hover{color:#fff;text-decoration:underline}
+  @media (max-width:640px){.author-badge{position:static;margin:14px 32px 0;width:fit-content}}
+  header.hero{max-width:1080px;margin:0 auto;padding:64px 32px 48px;border-bottom:1px solid var(--line)}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);display:flex;align-items:center;gap:10px;margin-bottom:20px}
+  .eyebrow::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--signal);display:inline-block}
+  h1{font-size:44px;font-weight:700;letter-spacing:-0.02em;line-height:1.12;max-width:760px}
+  h1 em{font-style:normal;color:var(--signal)}
+  .hero-sub{margin-top:18px;font-size:18px;color:var(--ink-soft);max-width:620px}
+  .hero-meta{display:flex;gap:28px;margin-top:32px;flex-wrap:wrap}
+  .hero-meta-item{font-family:var(--mono);font-size:12px;color:var(--ink-faint)}
+  .hero-meta-item b{color:var(--ink);font-weight:600;display:block;font-size:14px;margin-top:2px}
+  .layout{max-width:1080px;margin:0 auto;display:grid;grid-template-columns:200px 1fr;gap:56px;padding:0 32px}
+  nav.toc{position:sticky;top:32px;align-self:start;padding-top:48px;font-family:var(--mono);font-size:12px}
+  nav.toc a{display:block;color:var(--ink-faint);padding:6px 0;border-left:2px solid transparent;padding-left:12px;margin-left:-13px;transition:color .15s,border-color .15s}
+  nav.toc a:hover,nav.toc a.active{color:var(--ink);border-left-color:var(--signal);text-decoration:none}
+  main{padding:48px 0 80px;min-width:0}
+  section.step{padding:40px 0;border-bottom:1px solid var(--line)}
+  section.step:first-child{padding-top:0}
+  .step-num{font-family:var(--mono);font-size:13px;color:var(--signal);font-weight:600;margin-bottom:8px;display:block}
+  h2{font-size:26px;font-weight:700;letter-spacing:-0.01em;margin-bottom:18px}
+  h3{font-size:16px;font-weight:600;margin:28px 0 12px}
+  p{margin-bottom:14px;color:var(--ink);max-width:680px}
+  p.lead{font-size:17px;color:var(--ink-soft)}
+  ul,ol{margin:0 0 16px 0;padding-left:0;max-width:680px}
+  li{list-style:none;padding-left:20px;position:relative;margin-bottom:8px;font-size:15px}
+  li::before{content:'—';position:absolute;left:0;color:var(--ink-faint)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin:20px 0}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin:20px 0}
+  .card{background:var(--paper-raised);border:1px solid var(--line);padding:18px 20px}
+  .card h4{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-faint);font-weight:600;margin-bottom:10px}
+  .card p{font-size:14px;margin-bottom:0}
+  .card ul{margin:0}
+  .card li{font-size:13px}
+  .metric{border-left:2px solid var(--signal);padding:4px 0 4px 16px}
+  .metric .num{font-family:var(--mono);font-size:28px;font-weight:600;color:var(--ink);display:block;line-height:1.1}
+  .metric .label{font-size:12px;color:var(--ink-faint);margin-top:2px}
+  .insight{border-left:2px solid;padding:10px 16px;margin:12px 0;font-size:14px;line-height:1.65;max-width:680px}
+  .insight-amber{border-color:#B07D2B;background:#FBF5E8;color:#5A3D0A}
+  .insight-green{border-color:#3B6D11;background:#EEF7E8;color:#1E3B08}
+  pre{font-family:var(--mono);font-size:12.5px;line-height:1.8;background:var(--ink);color:#E9E7DF;padding:20px 22px;overflow-x:auto;margin:16px 0;border-radius:2px}
+  pre .c-num{color:var(--signal)}
+  pre .c-dim{color:#8A887F}
+  code.inline{font-family:var(--mono);font-size:13px;background:var(--signal-soft);color:var(--signal-deep);padding:1px 6px;border-radius:2px}
+  table{width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;max-width:760px}
+  th{text-align:left;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-faint);font-weight:600;padding:8px 12px;border-bottom:1px solid var(--line-strong)}
+  td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top;color:var(--ink-soft)}
+  td:first-child{color:var(--ink);font-weight:500}
+  .dive{border:1px solid var(--line);margin:24px 0}
+  .dive-head{background:var(--ink);color:var(--paper);padding:12px 18px;font-family:var(--mono);font-size:13px;font-weight:500;display:flex;align-items:center;gap:10px}
+  .dive-head .tag{background:var(--signal);color:#fff;font-size:10px;padding:2px 7px;text-transform:uppercase;letter-spacing:.05em}
+  .dive-body{padding:20px 22px}
+  .dive-label{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin:18px 0 6px}
+  .dive-label.fail{color:#A32D2D}
+  .dive-label.fix{color:#3B6D11}
+  .dive-body p{font-size:14px}
+  .arch-wrap{background:var(--ink);padding:24px;overflow-x:auto;margin:20px 0}
+  .arch-wrap pre{background:transparent;padding:0;margin:0}
+  .comp-list{border:1px solid var(--line);margin:16px 0}
+  .comp-item{padding:14px 16px;border-bottom:1px solid var(--line)}
+  .comp-item:last-child{border-bottom:none}
+  .comp-name{font-weight:600;font-size:14px;margin-bottom:4px;color:var(--ink)}
+  .comp-why{font-size:13px;color:var(--ink-soft);line-height:1.6}
+  .q{font-size:13px;padding:9px 14px;background:var(--paper-raised);border:1px solid var(--line);margin:6px 0;color:var(--ink-soft);line-height:1.6}
+  .q::before{content:"? ";font-size:12px;color:var(--ink-faint);font-family:var(--mono)}
+  .cheat-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);margin:20px 0}
+  .cheat-cell{background:var(--paper-raised);padding:16px 18px}
+  .cheat-cell h4{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--signal);font-weight:600;margin-bottom:6px}
+  .cheat-cell p{font-size:13px;margin:0;color:var(--ink-soft)}
+  footer{border-top:1px solid var(--line);padding:40px 32px 60px;max-width:1080px;margin:0 auto;font-family:var(--mono);font-size:12px;color:var(--ink-faint);display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+  @media (max-width:840px){
+    .layout{grid-template-columns:1fr;gap:0}
+    nav.toc{position:static;display:flex;overflow-x:auto;gap:4px;padding:16px 0;border-bottom:1px solid var(--line);white-space:nowrap}
+    nav.toc a{border-left:none;border-bottom:2px solid transparent;margin-left:0;padding:6px 10px}
+    nav.toc a:hover,nav.toc a.active{border-left-color:transparent;border-bottom-color:var(--signal)}
+    h1{font-size:32px}
+    .grid2,.grid3{grid-template-columns:1fr}
+    .cheat-grid{grid-template-columns:1fr}
+    .hero-meta{gap:18px}
+  }
+</style>
+</head>
+<body>
+
+<div class="author-badge">
+  <div class="author-text">
+    <span class="author-name">Samprita Koley</span>
+    <span class="author-links">
+      <a href="mailto:sampritakoley01@gmail.com">sampritakoley01@gmail.com</a>
+      <span style="color:rgba(255,255,255,0.4)">·</span>
+      <a href="https://www.linkedin.com/in/sampritakoley/" target="_blank" rel="noopener">LinkedIn</a>
+    </span>
+  </div>
+</div>
+
+<header class="hero">
+  <div class="eyebrow">System Design Case Study</div>
+  <h1>Designing a Rate Limiter when <em>1 million requests a second</em> hit the gate.</h1>
+  <p class="hero-sub">A complete high-level design walkthrough — requirements, capacity estimation, architecture, algorithms, and three deep dives into the hardest problems: algorithm choice, distributed counting, and failure handling.</p>
+  <div class="hero-meta">
+    <div class="hero-meta-item">SCOPE<b>Limit · Count · Reject · Configure</b></div>
+    <div class="hero-meta-item">FORMAT<b>8-step HLD walkthrough</b></div>
+    <div class="hero-meta-item">FOCUS<b>Low-latency checks &amp; distributed state</b></div>
+  </div>
+</header>
+
+<div class="layout">
+  <nav class="toc" id="toc">
+    <a href="#step1">01 · Problem</a>
+    <a href="#step2">02 · Requirements</a>
+    <a href="#step3">03 · Estimation</a>
+    <a href="#step4">04 · Architecture</a>
+    <a href="#step5">05 · Database</a>
+    <a href="#step6">06 · Deep Dives</a>
+    <a href="#step7">07 · Tradeoffs</a>
+    <a href="#step8">08 · Cheat Sheet</a>
+  </nav>
+
+  <main>
+
+    <section class="step" id="step1">
+      <span class="step-num">01 / Understanding the problem</span>
+      <h2>What is this system, really?</h2>
+      <p class="lead">A rate limiter caps how many requests a client can make in a time window. It protects services from abuse, bugs and traffic spikes, enforces fair usage and plan quotas, and keeps costs predictable. Think of it as a tiny, extremely fast counter sitting in front of every API.</p>
+      <p>The core challenge: the limiter sits on the hot path of every request, so it must add almost no latency, never become a single point of failure, and stay accurate while counters are shared across dozens of gateway nodes. A slow or broken limiter is worse than none.</p>
+
+      <h3>Core features in scope</h3>
+      <div class="grid2">
+        <div class="card"><h4>Limit checks</h4><p>For each request, decide allow or reject based on client identity and the matching rule. Decision in a couple of milliseconds.</p></div>
+        <div class="card"><h4>Flexible rules</h4><p>Limits per user, API key, IP or endpoint, with different tiers (free, pro, internal) and windows (per second, per minute, per day).</p></div>
+        <div class="card"><h4>Clear feedback</h4><p>Rejected calls get HTTP 429 with headers showing the limit, remaining quota and when to retry.</p></div>
+        <div class="card"><h4>Live configuration</h4><p>Rules change without redeploying. Updates reach every node within seconds.</p></div>
+      </div>
+
+      <h3>What makes this hard at scale</h3>
+      <ul>
+        <li><strong>Hot path latency.</strong> The check runs before every request; even 10ms extra is felt everywhere.</li>
+        <li><strong>Distributed counters.</strong> Many gateways must agree on one client's count without racing each other.</li>
+        <li><strong>Burst behaviour.</strong> Fixed windows allow double-rate bursts at the boundary; the algorithm choice matters.</li>
+        <li><strong>Hot keys.</strong> One abusive IP or one huge customer can overload a single counter shard.</li>
+        <li><strong>Failure mode.</strong> If the counter store dies, do we block everyone or let everyone through?</li>
+      </ul>
+    </section>
+
+    <section class="step" id="step2">
+      <span class="step-num">02 / Requirements</span>
+      <h2>Functional vs. non-functional requirements</h2>
+      <p class="lead">Non-functional requirements are what actually drive architecture decisions — they're listed first for a reason.</p>
+
+      <div class="grid2">
+        <div class="card">
+          <h4>Functional</h4>
+          <ul>
+            <li>Limit by user, API key, IP, endpoint</li>
+            <li>Multiple rules per request (AND logic)</li>
+            <li>Different limits per plan tier</li>
+            <li>Return 429 with retry headers</li>
+            <li>Update rules dynamically</li>
+            <li>Allow burst within a steady rate</li>
+            <li>Expose metrics on blocked traffic</li>
+            <li>Allowlist for trusted clients</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h4>Non-functional</h4>
+          <ul>
+            <li>1M checks/sec at peak</li>
+            <li>Added latency &lt; 5ms (p99)</li>
+            <li>99.99% availability</li>
+            <li>Fail open if limiter is down</li>
+            <li>Accurate within ~1-5% across nodes</li>
+            <li>Memory per client is tiny</li>
+            <li>Rule changes live in &lt; 10s</li>
+            <li>Horizontally scalable</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>Clarifying questions</h3>
+      <div class="q">Client-side, server-side, or at the API gateway? Gateway is the usual answer.</div>
+      <div class="q">What identifies a client: user ID, API key, IP, or a combination?</div>
+      <div class="q">Hard limit or soft limit? Do we queue excess requests or reject them outright?</div>
+      <div class="q">Single region or multi-region? Global limits are far harder than per-region limits.</div>
+      <div class="q">Must counts be exact (billing quotas) or approximate (abuse protection)?</div>
+      <div class="q">If the limiter fails, should traffic fail open or fail closed?</div>
+    </section>
+
+    <section class="step" id="step3">
+      <span class="step-num">03 / Estimation</span>
+      <h2>Back-of-envelope math</h2>
+      <p class="lead">Order-of-magnitude accuracy is the goal here, not precision. Every assumption is stated explicitly.</p>
+
+      <div class="grid3">
+        <div class="metric"><span class="num">~1M/s</span><span class="label">Peak limit checks</span></div>
+        <div class="metric"><span class="num">~10GB</span><span class="label">Counter memory</span></div>
+        <div class="metric"><span class="num">~20</span><span class="label">Redis shards</span></div>
+      </div>
+
+      <h3>Assumptions</h3>
+      <pre>Total requests          = 300K/sec average
+Peak (3x average)       = ~1M/sec
+Active clients          = 50M in the last window (users + IPs)
+Rules per request       = 2 (e.g. per-user and per-endpoint)
+Counter state per key   = ~100 bytes (key + count + timestamp)</pre>
+
+      <h3>QPS</h3>
+      <pre>Checks/sec:
+  1M requests × 2 rules        = <span class="c-num">~2M counter ops/sec</span>
+  Redis handles ~100K ops/sec per node
+  2M / 100K                    = <span class="c-num">~20 shards</span> (plus replicas)
+
+<span class="c-dim">Use a Lua script or pipelining so each check is one round trip,
+not two. Local in-memory pre-checks cut remote calls further.</span></pre>
+
+      <h3>Storage</h3>
+      <pre>Counters:
+  50M keys × 100 B             = <span class="c-num">~5 GB</span>  (~10 GB with overhead)
+  Keys expire with their window (TTL), so memory self-cleans.
+
+Rules config:
+  ~10K rules × 1 KB            = ~10 MB, cached on every node
+
+Blocked-request logs:
+  ~1% blocked × 300K/s × 100 B = ~300 KB/s (~25 GB/day)</pre>
+
+      <h3>Bandwidth</h3>
+      <pre>2M ops/sec × ~100 B                        = <span class="c-num">~200 MB/s</span> to Redis
+Per-shard load                             = ~10 MB/s, trivial
+
+<span class="c-dim">The constraint is latency and CPU per op, not bandwidth.
+Keep Redis in the same zone as gateways: ~0.5ms round trip.</span></pre>
+    </section>
+
+    <section class="step" id="step4">
+      <span class="step-num">04 / High-level design</span>
+      <h2>Architecture</h2>
+      <p class="lead">Built top-down from the client. Every box exists because of a number from Step 3.</p>
+
+      <div class="arch-wrap">
+<pre>CLIENT (Mobile / Web / Partner API)
+        │
+        ▼
+[ Load Balancer ]
+        │
+        ▼
+[ API Gateway nodes ] ──► [ Rate Limiter middleware ]
+        │                      │            │
+        │ allowed              │            ▼
+        ▼                      │      [ Local rules cache ] ◄── [ Rules Service ]
+[ Backend services ]           │                                      │
+                               ▼                                      ▼
+                     [ Redis Cluster ]                         [ Rules DB + Admin UI ]
+                      counters, TTL, Lua
+                               │
+                               ▼
+                   [ Metrics / Kafka ] ──► Dashboards · Alerts · Abuse detection
+
+<span class="c-dim">Blocked path: middleware returns 429 + Retry-After without touching backends</span></pre>
+      </div>
+
+      <h3>Component rationale</h3>
+      <div class="comp-list">
+        <div class="comp-item">
+          <div class="comp-name">Rate limiter middleware</div>
+          <div class="comp-why">Runs inside the gateway as a library, not a separate hop. This avoids an extra network call and keeps added latency to one Redis round trip at most.</div>
+        </div>
+        <div class="comp-item">
+          <div class="comp-name">API Gateway</div>
+          <div class="comp-why">The natural choke point: every request passes through it, it already knows the client identity, and it can reject early before any backend work happens.</div>
+        </div>
+        <div class="comp-item">
+          <div class="comp-name">Redis Cluster</div>
+          <div class="comp-why">In-memory, sub-millisecond, atomic operations (INCR, Lua scripts) and native key expiry. Sharded by client key so each client's counter lives on exactly one node.</div>
+        </div>
+        <div class="comp-item">
+          <div class="comp-name">Rules Service + DB</div>
+          <div class="comp-why">Stores limits per client, tier and endpoint. Edited by admins or billing events, read rarely, so a simple relational store is enough.</div>
+        </div>
+        <div class="comp-item">
+          <div class="comp-name">Local rules cache</div>
+          <div class="comp-why">Each gateway keeps rules in memory and refreshes by polling or pub/sub push. Rule lookup never leaves the process.</div>
+        </div>
+        <div class="comp-item">
+          <div class="comp-name">Metrics pipeline</div>
+          <div class="comp-why">Allowed and blocked counts flow asynchronously to Kafka and dashboards. It powers alerts and abuse detection and is never on the request path.</div>
+        </div>
+      </div>
+
+      <h3>End-to-end data flow — "request arrives at the gateway"</h3>
+      <ol>
+        <li>Request reaches the gateway; auth identifies the user ID, API key or IP.</li>
+        <li>Middleware looks up matching rules in the local cache (by tier and endpoint).</li>
+        <li>It builds a counter key, e.g. <code class="inline">rl:{user}:{endpoint}</code>, and runs an atomic Lua script on Redis.</li>
+        <li>The script refills or slides the window, checks the limit, and returns allow/deny plus remaining quota.</li>
+        <li>If allowed, the request is forwarded to the backend with rate-limit headers attached.</li>
+        <li>If denied, the gateway returns <code class="inline">429</code> with <code class="inline">Retry-After</code> immediately.</li>
+        <li>An allow/block event is emitted asynchronously to the metrics pipeline.</li>
+        <li>If Redis times out (e.g. 20ms), the middleware fails open and logs the failure.</li>
+      </ol>
+    </section>
+
+    <section class="step" id="step5">
+      <span class="step-num">05 / Database design</span>
+      <h2>Storage layer</h2>
+      <p class="lead">Different data, different access patterns, different stores — hot counters in memory, durable rules in a database.</p>
+
+      <table>
+        <tr><th>Data</th><th>Store</th><th>Why</th></tr>
+        <tr><td>Live counters / buckets</td><td>Redis Cluster</td><td>Atomic ops, TTL, sub-ms latency</td></tr>
+        <tr><td>Rule definitions</td><td>PostgreSQL</td><td>Small, relational, rarely written</td></tr>
+        <tr><td>Rules on each gateway</td><td>In-process cache</td><td>Zero network cost per lookup</td></tr>
+        <tr><td>Block / allow events</td><td>Kafka → data lake</td><td>Append-only, async analytics</td></tr>
+      </table>
+
+      <h3>Core tables and keys</h3>
+      <pre>-- PostgreSQL (rules)
+CREATE TABLE rate_rules (
+  rule_id     BIGINT PRIMARY KEY,
+  scope       TEXT NOT NULL,        -- user | api_key | ip | endpoint
+  tier        TEXT,                 -- free | pro | internal
+  endpoint    TEXT,                 -- e.g. POST /orders
+  limit_count INT NOT NULL,         -- tokens per window
+  window_sec  INT NOT NULL,
+  burst       INT,                  -- bucket capacity
+  updated_at  TIMESTAMP DEFAULT now()
+);
+
+-- Redis (token bucket per client + rule)
+Key:   rl:{rule_id}:{client_id}
+Value: HASH { tokens: 87, last_refill_ms: 1735000000123 }
+TTL:   2 x window (idle clients disappear automatically)</pre>
+
+      <h3>Atomic check script (token bucket)</h3>
+      <pre>-- KEYS[1]=bucket, ARGV: capacity, refill_per_sec, now_ms, cost
+tokens, last = HMGET(key, 'tokens', 'last_refill_ms')
+tokens = min(capacity, tokens + (now - last) * refill_per_sec)
+<span class="c-dim">if tokens >= cost then tokens -= cost; allowed = 1 else allowed = 0 end</span>
+HMSET(key, tokens, now); EXPIRE(key, ttl)
+return { allowed, tokens }</pre>
+
+      <h3>Sharding strategy</h3>
+      <ul>
+        <li><strong>Counters</strong> — hash of <code class="inline">client_id</code> picks the Redis shard, so one client's checks hit one node and stay consistent.</li>
+        <li><strong>Hot clients</strong> — split one key into N sub-keys with a share of the limit each (see deep dive 2).</li>
+        <li><strong>Rules</strong> — no sharding needed; replicate to every gateway cache.</li>
+        <li><strong>Replicas</strong> — each shard has a replica for failover; counters may lose a few seconds of data, which is acceptable.</li>
+      </ul>
+    </section>
+
+    <section class="step" id="step6">
+      <span class="step-num">06 / Deep dives</span>
+      <h2>Deep dive on 3 critical components</h2>
+      <p class="lead">For each: the problem, the naive solution, why it fails, and the real solution used at scale. Volunteer these problems before the interviewer asks — it signals senior-level thinking.</p>
+
+      <div class="dive">
+        <div class="dive-head"><span class="tag">01</span> Algorithm choice — accurate limits without bursts or memory bloat</div>
+        <div class="dive-body">
+          <p><strong>The problem:</strong> Enforce "100 requests per minute" fairly, allow harmless short bursts, and keep memory tiny for 50M clients.</p>
+
+          <div class="dive-label fail">Naive solution — fixed window counter</div>
+          <pre>key = clientId + floor(now / 60s);   INCR key;   if count > 100 → reject</pre>
+          <p><strong>Why it fails:</strong> A client can send 100 requests at 12:00:59 and 100 more at 12:01:00. That is 200 requests in two seconds, double the intended rate, all technically allowed.</p>
+
+          <div class="dive-label fix">Real solution — token bucket (or sliding window counter)</div>
+          <pre>Token bucket:
+  - Bucket holds up to `capacity` tokens; refills at a steady rate.
+  - Each request spends one token. Empty bucket → 429.
+  - Allows bursts up to capacity, then enforces the average rate.
+  - State = 2 numbers per client (tokens, last_refill) ~ 100 bytes.
+
+Sliding window counter (when smooth limits matter):
+  - Keep counts for current and previous window.
+  - estimate = prev × (1 − elapsed%) + current
+  - Near-exact, 2 counters per client, no per-request log.
+
+Sliding window log (exact, costly):
+  - Stores every timestamp in a sorted set. Memory = limit × clients.
+  - Use only for small limits where exactness is critical.
+
+<span class="c-dim">Default to token bucket for APIs; sliding window counter
+for strict "N per minute" promises.</span></pre>
+          <div class="insight insight-green">The key insight: no algorithm is best everywhere. Token bucket gives burst tolerance at minimal memory, and the sliding window counter fixes the boundary problem with only two numbers per client.</div>
+        </div>
+      </div>
+
+      <div class="dive">
+        <div class="dive-head"><span class="tag">02</span> Distributed counting — consistency across many gateways</div>
+        <div class="dive-body">
+          <p><strong>The problem:</strong> Dozens of gateway nodes check the same client at once. The count must be correct, and one popular key must not melt a single Redis node.</p>
+
+          <div class="dive-label fail">Naive solution — read, compare, then write</div>
+          <pre>count = GET key;   if count < limit { SET key count+1; allow }</pre>
+          <p><strong>Why it fails:</strong> Two gateways read 99 at the same instant, both see "under the limit", both write 100, and both allow. Under load this is a race that lets many extra requests through. Local per-node counters are also wrong because the same client hits different nodes.</p>
+
+          <div class="dive-label fix">Real solution — atomic server-side script, plus hot-key splitting</div>
+          <pre>1. Do the whole check in one Lua script on Redis.
+   Redis runs scripts single-threaded, so there is no race.
+   One round trip: refill + check + decrement.
+
+2. Shard by client key with consistent hashing so a client's
+   state lives on one node; add replicas for failover.
+
+3. Hot keys (a huge customer or attacker):
+   - Split limit into N sub-keys (rl:key:0..N-1), each with limit/N,
+     pick one at random per request → load spreads across shards.
+   - Or use a local token lease: each gateway borrows a batch of
+     tokens (e.g. 50) from Redis and spends them locally.
+
+4. Multi-region: enforce per-region limits locally and sync
+   totals asynchronously; accept small overshoot for global caps.
+
+<span class="c-dim">Batching tokens cuts Redis calls by 10-50x at the cost
+of slight over-allowance near the limit.</span></pre>
+          <div class="insight insight-amber">Exact global limits need a single source of truth and cost latency. For abuse protection, approximate counts within a few percent are fine and far cheaper. Only billing-grade quotas deserve strict accuracy.</div>
+        </div>
+      </div>
+
+      <div class="dive">
+        <div class="dive-head"><span class="tag">03</span> Failure handling — when the limiter itself breaks</div>
+        <div class="dive-body">
+          <p><strong>The problem:</strong> Redis slows down or a shard dies. The limiter sits in front of every request, so its failure must not take the whole API down.</p>
+
+          <div class="dive-label fail">Naive solution — block requests if the limiter errors</div>
+          <pre>try { allowed = redis.check(key) } catch { return 429 }</pre>
+          <p><strong>Why it fails:</strong> A Redis hiccup turns into a full outage for every user. The protection mechanism becomes the biggest risk to availability, and retries from blocked clients make the situation worse.</p>
+
+          <div class="dive-label fix">Real solution — timeouts, fail open, local fallback</div>
+          <pre>1. Hard timeout on Redis calls (~10-20ms). Never wait longer.
+
+2. Fail open by default: on error or timeout, allow the request
+   and emit an alert. Brief over-allowance beats a global outage.
+
+3. Local fallback limiter: each gateway keeps an in-memory
+   token bucket with a generous per-node limit (limit / node count)
+   so abuse is still bounded while Redis is down.
+
+4. Circuit breaker: after repeated failures, skip Redis for a few
+   seconds and probe again, instead of timing out on every request.
+
+5. Fail closed only for sensitive endpoints (login, OTP, payments)
+   where unlimited attempts are dangerous.
+
+6. Redis replicas with automatic failover; counters lost in a
+   failover only reset windows, which is harmless.
+
+<span class="c-dim">Clients also get clear 429 + Retry-After headers and should
+use exponential backoff with jitter to avoid retry storms.</span></pre>
+          <div class="insight insight-green">Decide fail-open vs fail-closed per endpoint, not globally. Availability matters for most APIs; security matters for a few.</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="step" id="step7">
+      <span class="step-num">07 / Tradeoffs &amp; alternatives</span>
+      <h2>What we did NOT choose and why</h2>
+
+      <h3>Rejected alternatives</h3>
+      <table>
+        <tr><th>Alternative</th><th>Why rejected</th></tr>
+        <tr><td>Separate limiter microservice</td><td>Adds a network hop to every request. Embedding in the gateway with Redis is faster.</td></tr>
+        <tr><td>Per-node local counters only</td><td>Load balancing spreads one client across nodes, so real usage can be N times the limit.</td></tr>
+        <tr><td>Relational DB for counters</td><td>Too slow for millions of atomic updates per second; Redis fits natively.</td></tr>
+        <tr><td>Fixed window counter</td><td>Allows 2x bursts at window edges; token bucket or sliding window is fairer.</td></tr>
+        <tr><td>Sliding window log everywhere</td><td>Memory grows with the limit and client count; too costly at 50M keys.</td></tr>
+        <tr><td>Strictly consistent global counters</td><td>Cross-region coordination adds latency to every call for marginal accuracy.</td></tr>
+        <tr><td>Fail closed by default</td><td>Makes the limiter a single point of failure for the entire API.</td></tr>
+      </table>
+
+      <h3>What breaks at 10× scale and how we fix it</h3>
+
+      <div class="dive" style="margin-top:16px">
+        <div class="dive-body">
+          <div class="dive-label fail">Problem — Redis becomes the bottleneck</div>
+          <p>At 10M checks/sec, hundreds of shards and cross-node network load make Redis costly and latency-sensitive.</p>
+          <div class="dive-label fix">Fix</div>
+          <p>Use local token leases so gateways spend batches locally, add a fast in-process pre-check for obviously blocked clients, and add more shards with consistent hashing.</p>
+        </div>
+      </div>
+
+      <div class="dive">
+        <div class="dive-body">
+          <div class="dive-label fail">Problem — DDoS from millions of IPs</div>
+          <p>Distributed attacks create huge numbers of unique keys, flooding Redis memory with counters.</p>
+          <div class="dive-label fix">Fix</div>
+          <p>Shed traffic earlier at the CDN/WAF, use short TTLs for anonymous keys, and apply coarse per-subnet limits before per-IP limits.</p>
+        </div>
+      </div>
+
+      <div class="dive">
+        <div class="dive-body">
+          <div class="dive-label fail">Problem — Rule update lag</div>
+          <p>Changing a customer's plan takes minutes to reach all gateways, so they are throttled at the old limit.</p>
+          <div class="dive-label fix">Fix</div>
+          <p>Push changes through pub/sub with version numbers, keep a short polling fallback, and let gateways reload rules without restarting.</p>
+        </div>
+      </div>
+
+      <div class="dive">
+        <div class="dive-body">
+          <div class="dive-label fail">Problem — Multi-region accuracy</div>
+          <p>A client using several regions can exceed a global limit because each region counts separately.</p>
+          <div class="dive-label fix">Fix</div>
+          <p>Split the global limit into per-region budgets, sync usage asynchronously, and rebalance budgets based on observed traffic.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="step" id="step8">
+      <span class="step-num">08 / Summary</span>
+      <h2>Cheat sheet</h2>
+      <p class="lead">The ten things worth remembering before walking into the room.</p>
+
+      <div class="cheat-grid">
+        <div class="cheat-cell"><h4>Key numbers</h4><p>1M peak checks/sec · ~2M counter ops/sec · ~20 Redis shards · ~5-10 GB counters · &lt; 5ms added latency</p></div>
+        <div class="cheat-cell"><h4>Key datastores</h4><p>Redis Cluster (counters) · PostgreSQL (rules) · Local cache (rules on gateway) · Kafka (events)</p></div>
+        <div class="cheat-cell"><h4>Algorithm strategy</h4><p>Token bucket by default; sliding window counter for strict windows; avoid fixed window and the full log at scale.</p></div>
+        <div class="cheat-cell"><h4>Consistency strategy</h4><p>Atomic Lua script on the owning shard; no read-then-write; hot keys split into sub-keys or token leases.</p></div>
+        <div class="cheat-cell"><h4>Response contract</h4><p>HTTP 429 · Retry-After · X-RateLimit-Limit · X-RateLimit-Remaining · X-RateLimit-Reset</p></div>
+        <div class="cheat-cell"><h4>Key tradeoffs</h4><p>Accuracy vs. latency. Burst tolerance vs. strictness. Fail open vs. fail closed. Memory vs. exactness.</p></div>
+        <div class="cheat-cell"><h4>Hardest part</h4><p>Keeping counters correct across many nodes while adding almost no latency and never becoming a single point of failure.</p></div>
+        <div class="cheat-cell"><h4>Placement</h4><p>Inside the API gateway as middleware, before any backend work. Not a separate hop for each request.</p></div>
+        <div class="cheat-cell"><h4>Sharding keys</h4><p>Counters → hash(client_id) · Rules → replicated everywhere · Events → Kafka partition by client_id</p></div>
+        <div class="cheat-cell"><h4>Interview time map</h4><p>0–3 min: clarify · 3–7: requirements + estimation · 7–16: HLD + flow · 16–23: data + algorithm · 23–29: deep dives · 29–30: tradeoffs</p></div>
+      </div>
+
+      <h3>Rate limiting algorithms — at a glance</h3>
+      <table>
+        <tr><th>Algorithm</th><th>Memory per client</th><th>Burst behaviour</th><th>Best for</th></tr>
+        <tr><td>Token bucket</td><td>2 values</td><td>Allows bursts up to capacity</td><td>General APIs</td></tr>
+        <tr><td>Leaky bucket</td><td>Queue + rate</td><td>Smooths output to a constant rate</td><td>Protecting fragile backends</td></tr>
+        <tr><td>Fixed window</td><td>1 counter</td><td>2x burst at window edge</td><td>Simple, loose limits</td></tr>
+        <tr><td>Sliding window log</td><td>1 entry per request</td><td>Exact, no edge burst</td><td>Small limits, strict accuracy</td></tr>
+        <tr><td>Sliding window counter</td><td>2 counters</td><td>Near-exact, smooth</td><td>Strict "N per minute" at scale</td></tr>
+      </table>
+    </section>
+
+  </main>
+</div>
+
+<footer>
+  <span>System Design Case Study — Rate Limiter · API Protection Platform</span>
+  <span>Written as a high-level design walkthrough</span>
+</footer>
+
+<script>
+  const links = document.querySelectorAll('nav.toc a');
+  const sections = document.querySelectorAll('section.step');
+  const obs = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const id = entry.target.getAttribute('id');
+        links.forEach(l => l.classList.toggle('active', l.getAttribute('href') === '#' + id));
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  sections.forEach(s => obs.observe(s));
+</script>
+
+</body>
+</html>
