@@ -10,7 +10,6 @@ This repository is designed to help software engineers **master System Design in
 🚀 **Explore the complete interactive handbook**
 👉 **[HLD Question List](https://sampritakoley.github.io/HLD_System-Design-Solution/)**
 
----  RideBookingSystem
 
 **🔗 Solutions**
 <sub>👉 <a href="https://sampritakoley.github.io/HLD_System-Design-Solution/PhotoSharingSysDesign/">Design Instagram / Photo Sharing Platform</a></sub><br>
