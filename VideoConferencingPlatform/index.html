@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Designing a Video Conferencing System (Zoom) — System Design Case Study</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--paper:#FAF8F4;--paper-raised:#FFFFFF;--ink:#16181C;--ink-soft:#52524E;--ink-faint:#8A887F;--line:#DEDAD0;--line-strong:#C7C2B5;--signal:#D85A30;--signal-soft:#FAECE7;--signal-deep:#4A1B0C;--mono:'JetBrains Mono',monospace;--sans:'Inter',sans-serif}
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased}
+  a{color:var(--signal);text-decoration:none}
+  a:hover{text-decoration:underline}
+  a:focus-visible,button:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+  .author-badge{position:fixed;top:18px;right:24px;z-index:50;display:flex;align-items:center;background:var(--signal);border:1px solid var(--signal);padding:8px 16px;border-radius:999px;box-shadow:0 2px 14px rgba(216,90,48,0.35)}
+  .author-badge .author-text{display:flex;flex-direction:column;line-height:1.3}
+  .author-badge .author-name{font-size:12.5px;font-weight:600;color:#fff}
+  .author-badge .author-links{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10.5px}
+  .author-badge .author-links a{color:rgba(255,255,255,0.75);text-decoration:none}
+  .author-badge .author-links a:hover{color:#fff;text-decoration:underline}
+  @media (max-width:640px){.author-badge{position:static;margin:14px 32px 0;width:fit-content}}
+  header.hero{max-width:1080px;margin:0 auto;padding:64px 32px 48px;border-bottom:1px solid var(--line)}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);display:flex;align-items:center;gap:10px;margin-bottom:20px}
+  .eyebrow::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--signal);display:inline-block}
+  h1{font-size:44px;font-weight:700;letter-spacing:-0.02em;line-height:1.12;max-width:760px}
+  h1 em{font-style:normal;color:var(--signal)}
+  .hero-sub{margin-top:18px;font-size:18px;color:var(--ink-soft);max-width:620px}
+  .hero-meta{display:flex;gap:28px;margin-top:32px;flex-wrap:wrap}
+  .hero-meta-item{font-family:var(--mono);font-size:12px;color:var(--ink-faint)}
+  .hero-meta-item b{color:var(--ink);font-weight:600;display:block;font-size:14px;margin-top:2px}
+  .layout{max-width:1080px;margin:0 auto;display:grid;grid-template-columns:200px 1fr;gap:56px;padding:0 32px}
+  nav.toc{position:sticky;top:32px;align-self:start;padding-top:48px;font-family:var(--mono);font-size:12px}
+  nav.toc a{display:block;color:var(--ink-faint);padding:6px 0;border-left:2px solid transparent;padding-left:12px;margin-left:-13px;transition:color .15s,border-color .15s}
+  nav.toc a:hover,nav.toc a.active{color:var(--ink);border-left-color:var(--signal);text-decoration:none}
+  main{padding:48px 0 80px;min-width:0}
+  section.step{padding:40px 0;border-bottom:1px solid var(--line)}
+  section.step:first-child{padding-top:0}
+  .step-num{font-family:var(--mono);font-size:13px;color:var(--signal);font-weight:600;margin-bottom:8px;display:block}
+  h2{font-size:26px;font-weight:700;letter-spacing:-0.01em;margin-bottom:18px}
+  h3{font-size:16px;font-weight:600;margin:28px 0 12px}
+  p{margin-bottom:14px;color:var(--ink);max-width:680px}
+  p.lead{font-size:17px;color:var(--ink-soft)}
+  ul,ol{margin:0 0 16px 0;padding-left:0;max-width:680px}
+  li{list-style:none;padding-left:20px;position:relative;margin-bottom:8px;font-size:15px}
+  li::before{content:'—';position:absolute;left:0;color:var(--ink-faint)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin:20px 0}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin:20px 0}
+  .card{background:var(--paper-raised);border:1px solid var(--line);padding:18px 20px}
+  .card h4{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-faint);font-weight:600;margin-bottom:10px}
+  .card p{font-size:14px;margin-bottom:0}
+  .card ul{margin:0}
+  .card li{font-size:13px}
+  .metric{border-left:2px solid var(--signal);padding:4px 0 4px 16px}
+  .metric .num{font-family:var(--mono);font-size:28px;font-weight:600;color:var(--ink);display:block;line-height:1.1}
+  .metric .label{font-size:12px;color:var(--ink-faint);margin-top:2px}
+  .insight{border-left:2px solid;padding:10px 16px;margin:12px 0;font-size:14px;line-height:1.65;max-width:680px}
+  .insight-amber{border-color:#B07D2B;background:#FBF5E8;color:#5A3D0A}
+  .insight-green{border-color:#3B6D11;background:#EEF7E8;color:#1E3B08}
+  pre{font-family:var(--mono);font-size:12.5px;line-height:1.8;background:var(--ink);color:#E9E7DF;padding:20px 22px;overflow-x:auto;margin:16px 0;border-radius:2px}
+  pre .c-num{color:var(--signal)}
+  pre .c-dim{color:#8A887F}
+  code.inline{font-family:var(--mono);font-size:13px;background:var(--signal-soft);color:var(--signal-deep);padding:1px 6px;border-radius:2px}
+  table{width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;max-width:760px}
+  th{text-align:left;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-faint);font-weight:600;padding:8px 12px;border-bottom:1px solid var(--line-strong)}
+  td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top;color:var(--ink-soft)}
+  td:first-child{color:var(--ink);font-weight:500}
+  .dive{border:1px solid var(--line);margin:24px 0}
+  .dive-head{background:var(--ink);color:var(--paper);padding:12px 18px;font-family:var(--mono);font-size:13px;font-weight:500;display:flex;align-items:center;gap:10px}
+  .dive-head .tag{background:var(--signal);color:#fff;font-size:10px;padding:2px 7px;text-transform:uppercase;letter-spacing:.05em}
+  .dive-body{padding:20px 22px}
+  .dive-label{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin:18px 0 6px}
+  .dive-label.fail{color:#A32D2D}
+  .dive-label.fix{color:#3B6D11}
+  .dive-body p{font-size:14px}
+  .arch-wrap{background:var(--ink);padding:24px;overflow-x:auto;margin:20px 0}
+  .arch-wrap pre{background:transparent;padding:0;margin:0}
+  .comp-list{border:1px solid var(--line);margin:16px 0}
+  .comp-item{padding:14px 16px;border-bottom:1px solid var(--line)}
+  .comp-item:last-child{border-bottom:none}
+  .comp-name{font-weight:600;font-size:14px;margin-bottom:4px;color:var(--ink)}
+  .comp-why{font-size:13px;color:var(--ink-soft);line-height:1.6}
+  .q{font-size:13px;padding:9px 14px;background:var(--paper-raised);border:1px solid var(--line);margin:6px 0;color:var(--ink-soft);line-height:1.6}
+  .q::before{content:"? ";font-size:12px;color:var(--ink-faint);font-family:var(--mono)}
+  .cheat-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);margin:20px 0}
+  .cheat-cell{background:var(--paper-raised);padding:16px 18px}
+  .cheat-cell h4{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--signal);font-weight:600;margin-bottom:6px}
+  .cheat-cell p{font-size:13px;margin:0;color:var(--ink-soft)}
+  footer{border-top:1px solid var(--line);padding:40px 32px 60px;max-width:1080px;margin:0 auto;font-family:var(--mono);font-size:12px;color:var(--ink-faint);display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+  @media (max-width:840px){
+    .layout{grid-template-columns:1fr;gap:0}
+    nav.toc{position:static;display:flex;overflow-x:auto;gap:4px;padding:16px 0;border-bottom:1px solid var(--line);white-space:nowrap}
+    nav.toc a{border-left:none;border-bottom:2px solid transparent;margin-left:0;padding:6px 10px}
+    nav.toc a:hover,nav.toc a.active{border-left-color:transparent;border-bottom-color:var(--signal)}
+    h1{font-size:32px}
+    .grid2,.grid3{grid-template-columns:1fr}
+    .cheat-grid{grid-template-columns:1fr}
+    .hero-meta{gap:18px}
+  }
+</style>
+</head>
+<body>
+
+<div class="author-badge">
+  <div class="author-text">
+    <span class="author-name">Samprita Koley</span>
+    <span class="author-links">
+      <a href="mailto:sampritakoley01@gmail.com">sampritakoley01@gmail.com</a>
+      <span style="color:rgba(255,255,255,0.4)">·</span>
+      <a href="https://www.linkedin.com/in/sampritakoley/" target="_blank" rel="noopener">LinkedIn</a>
+    </span>
+  </div>
+</div>
+
+<header class="hero">
+  <div class="eyebrow">System Design Case Study</div>
+  <h1>Designing a Video Conferencing System when <em>300 million people</em> join a call daily.</h1>
+  <p class="hero-sub">A complete high-level design walkthrough — requirements, capacity estimation, architecture, data model, and three deep dives into the hardest problems: real-time media routing, network adaptation, and meeting state at scale.</p>
+  <div class="hero-meta">
+    <div class="hero-meta-item">SCOPE<b>Join · Talk · Share · Record</b></div>
+    <div class="hero-meta-item">FORMAT<b>8-step HLD walkthrough</b></div>
+    <div class="hero-meta-item">FOCUS<b>SFU media routing &amp; low latency</b></div>
+  </div>
+</header>
+
+<div class="layout">
+  <nav class="toc" id="toc">
+    <a href="#step1">01 · Problem</a>
+    <a href="#step2">02 · Requirements</a>
+    <a href="#step3">03 · Estimation</a>
+    <a href="#step4">04 · Architecture</a>
+    <a href="#step5">05 · Database</a>
+    <a href="#step6">06 · Deep Dives</a>
+    <a href="#step7">07 · Tradeoffs</a>
+    <a href="#step8">08 · Cheat Sheet</a>
+  </nav>
+
+  <main>
+
+    <section class="step" id="step1">
+      <span class="step-num">01 / Understanding the problem</span>
+      <h2>What is this system, really?</h2>
+      <p class="lead">A video conferencing platform lets people in different places see, hear and share screens with each other in real time. Think of it as a giant switchboard: every participant sends their media up, and the system forwards it to everyone else within a fraction of a second.</p>
+      <p>The core challenge: unlike video streaming, nothing can be pre-computed or cached. Media is live, latency must stay under ~200 ms, and every stream fans out to many viewers. Real-time packet routing, not storage, is the bottleneck.</p>
+
+      <h3>Core features in scope</h3>
+      <div class="grid2">
+        <div class="card"><h4>Meetings</h4><p>Create, schedule and join a meeting by link or ID, with a waiting room and host controls.</p></div>
+        <div class="card"><h4>Audio &amp; video</h4><p>Two-way real-time audio and video with gallery and active-speaker layouts.</p></div>
+        <div class="card"><h4>Screen share &amp; chat</h4><p>Share a screen at readable quality, send in-meeting chat and reactions.</p></div>
+        <div class="card"><h4>Recording</h4><p>Cloud recording with transcript, available shortly after the meeting ends.</p></div>
+      </div>
+
+      <h3>What makes this hard at scale</h3>
+      <ul>
+        <li><strong>Hard real-time.</strong> Audio delayed beyond ~200 ms ruins conversation; late packets are useless.</li>
+        <li><strong>No caching.</strong> Live media cannot sit on a CDN; every packet is routed on the fly.</li>
+        <li><strong>Fan-out.</strong> With N participants, each stream must reach N-1 others, so traffic grows quadratically if designed naively.</li>
+        <li><strong>Unreliable networks.</strong> Participants on WiFi, 4G and office LANs suffer loss, jitter and changing bandwidth.</li>
+        <li><strong>Firewalls and NAT.</strong> Most clients cannot accept direct inbound connections.</li>
+      </ul>
+    </section>
+
+    <section class="step" id="step2">
+      <span class="step-num">02 / Requirements</span>
+      <h2>Functional vs. non-functional requirements</h2>
+      <p class="lead">Non-functional requirements are what actually drive architecture decisions — they're listed first for a reason.</p>
+
+      <div class="grid2">
+        <div class="card">
+          <h4>Functional</h4>
+          <ul>
+            <li>Schedule, start and join meetings via link</li>
+            <li>Real-time audio and video for up to 100–1000 participants</li>
+            <li>Screen sharing</li>
+            <li>In-meeting chat, mute, raise hand, reactions</li>
+            <li>Host controls: waiting room, remove, mute all</li>
+            <li>Cloud recording and transcripts</li>
+            <li>Works on web, mobile and desktop</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h4>Non-functional</h4>
+          <ul>
+            <li>300M daily participants, ~30M concurrent at peak</li>
+            <li>End-to-end media latency &lt; 200 ms (p95)</li>
+            <li>Join a meeting in &lt; 3 seconds</li>
+            <li>99.99% availability for live meetings</li>
+            <li>Audio prioritised over video under bad networks</li>
+            <li>Graceful degradation, not call drops</li>
+            <li>Encryption in transit; optional end-to-end</li>
+            <li>Recordings never lost once a meeting ends</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>Clarifying questions</h3>
+      <div class="q">Typical and maximum meeting size? 1:1 and 1000-person meetings need different designs.</div>
+      <div class="q">Webinar mode (few speakers, many viewers) in scope, or only interactive meetings?</div>
+      <div class="q">Is end-to-end encryption required? It blocks server-side recording and transcoding.</div>
+      <div class="q">Which devices and what maximum resolution (720p, 1080p)?</div>
+      <div class="q">Global audience? This decides how many media regions we need.</div>
+      <div class="q">Cloud recording and live transcription required, or client-side only?</div>
+    </section>
+
+    <section class="step" id="step3">
+      <span class="step-num">03 / Estimation</span>
+      <h2>Back-of-envelope math</h2>
+      <p class="lead">Order-of-magnitude accuracy is the goal here, not precision. Every assumption is stated explicitly.</p>
+
+      <div class="grid3">
+        <div class="metric"><span class="num">~30M</span><span class="label">Peak concurrent participants</span></div>
+        <div class="metric"><span class="num">~50 Tbps</span><span class="label">Peak media egress</span></div>
+        <div class="metric"><span class="num">~0.7 PB/day</span><span class="label">Recordings</span></div>
+      </div>
+
+      <h3>Assumptions</h3>
+      <pre>Daily participants      = 300M, average meeting 40 min, average size 6
+Meetings per day        = 300M / 6 = ~50M
+Peak concurrent         = ~30M participants ≈ ~5M live meetings
+Upload per client       = ~1.5 Mbps (audio 50 kbps + simulcast video layers)
+Download per client     = ~1.5 Mbps (a few forwarded streams)
+Recorded meetings       = 3% → 1.5M/day, ~0.45 GB each
+Metadata per meeting    = ~2 KB</pre>
+
+      <h3>QPS</h3>
+      <pre>Meeting joins:
+  300M / 86,400                = ~3.5K/sec avg → <span class="c-num">~20K/sec peak</span> (top of the hour)
+
+Media packets:
+  30M clients × ~100 pkts/sec  = <span class="c-num">~3B packets/sec</span> in, similar out
+
+Signaling messages (mute, chat, hand raise, etc.):
+  ~10x joins                   = ~200K/sec peak
+
+<span class="c-dim">Metadata QPS is small. The real load is packets per second: media
+servers must be stateless-ish, UDP-based, and horizontally scaled.</span></pre>
+
+      <h3>Storage</h3>
+      <pre>Recordings:
+  1.5M × 0.45 GB               = <span class="c-num">~0.7 PB/day</span> → ~250 PB/year
+
+Transcripts + chat:
+  1.5M × ~1 MB                 = ~1.5 TB/day (small)
+
+Metadata:
+  50M × 2 KB                   = ~100 GB/day
+
+<span class="c-dim">Live media is never stored. Only recordings persist, and they can
+move to cold storage after 30-90 days.</span></pre>
+
+      <h3>Bandwidth &amp; connections</h3>
+      <pre>Ingress                  = 30M × 1.5 Mbps ≈ <span class="c-num">~45 Tbps</span>
+Egress                   = 30M × 1.5 Mbps ≈ <span class="c-num">~45-50 Tbps</span>
+Media servers (SFU)      = ~5 Gbps usable per node → ~10K nodes at peak
+Signaling connections    = 30M persistent WebSockets
+
+<span class="c-dim">Unlike video-on-demand there is no 95% cache hit rate to save us.
+Ingress ≈ egress, so cost control means many regions and efficient forwarding.</span></pre>
+    </section>
+
+    <section class="step" id="step4">
+      <span class="step-num">04 / High-level design</span>
+      <h2>Architecture</h2>
+      <p class="lead">Built top-down from the client. Every box exists because of a number from Step 3. Control plane (signaling) and media plane (audio/video packets) are kept separate.</p>
+
+      <div class="arch-wrap">
+<pre>CLIENT A (web / mobile / desktop)                CLIENT B ... CLIENT N
+   │ HTTPS + WebSocket (signaling)                    │
+   │ UDP / SRTP (media)                               │
+   ▼                                                  ▼
+[ API Gateway / LB ] ──► [ Meeting Service ] ◄──► [ Meeting DB + Redis ]
+   │                          │ picks region + SFU
+   ├──► [ Signaling Servers (WebSocket) ] ◄──► [ Redis pub/sub: room state ]
+   │
+   │      ┌────────── MEDIA REGION ──────────┐
+   └─────►│ [ TURN / STUN ]  [ SFU cluster ] │◄──── UDP media from clients
+          │       │               │          │
+          │       │      SFU ↔ SFU cascade   │──► other regions
+          └───────┼───────────────┼──────────┘
+                  │               ▼
+                  │         [ Kafka ] ──► [ Recording Workers ] ──► [ Object store ]
+                  │               │                                     │
+                  │               └──► [ Transcription / Moderation ]   ▼
+                  ▼                                          [ Metadata / Playback ]
+            [ Chat Service ] ──► [ Cassandra ]
+
+<span class="c-dim">Media goes client → SFU → clients over UDP. App servers never touch media packets</span></pre>
+      </div>
+
+      <h3>Component rationale</h3>
+      <div class="comp-list">
+        <div class="comp-item">
+          <div class="comp-name">Meeting service</div>
+          <div class="comp-why">Creates meetings, validates passwords and waiting-room rules, and assigns each meeting to the nearest healthy media region and SFU. Owns the meeting lifecycle.</div>
+        </div>
+        <div class="comp-item">
+          <div class="comp-name">Signaling servers (WebSocket)</div>
+          <div class="comp-why">Carry join/leave, SDP offer/answer, ICE candidates, mute and chat events. Low bandwidth but long-lived connections; room state is shared through Redis pub/sub.</div>
+        </div>
+        <div class="comp-item">
+          <div class="comp-name">SFU (Selective Forwarding Unit)</div>
+          <div class="comp-why">Receives each participant's stream once and forwards selected streams to others without decoding. Far cheaper than an MCU and avoids the N² mesh.</div>
+        </div>
+        <div class="comp-item">
+          <div class="comp-name">STUN / TURN</div>
+          <div class="comp-why">STUN helps clients discover their public address; TURN relays media for clients behind strict NATs or firewalls (TCP/443 fallback).</div>
+        </div>
+        <div class="comp-item">
+          <div class="comp-name">Recording &amp; transcription workers</div>
+          <div class="comp-why">Join the meeting as a silent participant, mix or compose streams asynchronously, and write the file to object storage. Off the live path.</div>
+        </div>
+        <div class="comp-item">
+          <div class="comp-name">Chat service + metadata stores</div>
+          <div class="comp-why">Chat is append-heavy and lives in Cassandra. Meeting metadata sits in sharded SQL with a Redis cache.</div>
+        </div>
+      </div>
+
+      <h3>End-to-end data flow — "host starts, participant joins"</h3>
+      <ol>
+        <li>Host creates a meeting; Meeting Service stores it and returns a link with a meeting ID.</li>
+        <li>A participant opens the link, authenticates, and the Meeting Service picks a region (by latency) and an SFU.</li>
+        <li>Client opens a WebSocket to signaling and exchanges SDP offer/answer and ICE candidates.</li>
+        <li>Client establishes a UDP path to the SFU (direct, via STUN, or relayed by TURN) with DTLS-SRTP encryption.</li>
+        <li>Client uploads its audio and simulcast video layers once to the SFU.</li>
+        <li>The SFU forwards the right layer of each speaker to every other participant based on their bandwidth and layout.</li>
+        <li>Mute, hand raise and chat events flow through signaling and Redis pub/sub to everyone in the room.</li>
+        <li>On end, recording workers finalise the file, store it, and metadata marks the recording <code class="inline">READY</code>.</li>
+      </ol>
+    </section>
+
+    <section class="step" id="step5">
+      <span class="step-num">05 / Database design</span>
+      <h2>Storage layer</h2>
+      <p class="lead">Live media lives only in memory on SFUs. Persistent stores hold meeting metadata, chat and recordings — each matched to its access pattern.</p>
+
+      <table>
+        <tr><th>Data</th><th>Store</th><th>Why</th></tr>
+        <tr><td>Meetings, users, schedules</td><td>MySQL / PostgreSQL (sharded) + Redis</td><td>Relations, transactions, read-heavy</td></tr>
+        <tr><td>Live room state (participants, SFU)</td><td>Redis (+ pub/sub)</td><td>Fast, ephemeral, TTL-based</td></tr>
+        <tr><td>Chat messages</td><td>Cassandra</td><td>Append-heavy, keyed by meeting</td></tr>
+        <tr><td>Recordings and transcripts</td><td>Object storage (S3 / GCS)</td><td>Cheap, durable, tiered</td></tr>
+        <tr><td>Quality and usage events</td><td>Kafka → columnar analytics store</td><td>High-volume, analysed offline</td></tr>
+      </table>
+
+      <h3>Core tables and keys</h3>
+      <pre>-- PostgreSQL / MySQL (meetings)
+CREATE TABLE meetings (
+  meeting_id   BIGINT PRIMARY KEY,       -- snowflake id (shown as 10-11 digit code)
+  host_id      BIGINT NOT NULL,
+  title        TEXT,
+  status       TEXT NOT NULL,            -- SCHEDULED | LIVE | ENDED
+  region       TEXT,                     -- media region currently hosting
+  sfu_id       TEXT,                     -- assigned SFU node
+  passcode     TEXT,
+  start_time   TIMESTAMP,
+  created_at   TIMESTAMP DEFAULT now()
+);
+
+-- Cassandra
+chat:   PK ((meeting_id), sent_at, message_id)
+
+-- Redis
+Key: room:{meeting_id}     Value: HASH { sfu_id, region, host, locked }       TTL while LIVE
+Key: participants:{id}     Value: SET of user_id / connection ids</pre>
+
+      <h3>Sharding strategy</h3>
+      <ul>
+        <li><strong>Meetings</strong> — shard by <code class="inline">meeting_id</code>; all lookups are by ID.</li>
+        <li><strong>Chat</strong> — partition by meeting_id so a meeting's chat reads from one partition.</li>
+        <li><strong>Room state</strong> — Redis cluster keyed by meeting_id; the same key routes signaling to the right room.</li>
+        <li><strong>Recordings</strong> — keyed by meeting_id and segment, stored in the recording's home region.</li>
+      </ul>
+    </section>
+
+    <section class="step" id="step6">
+      <span class="step-num">06 / Deep dives</span>
+      <h2>Deep dive on 3 critical components</h2>
+      <p class="lead">For each: the problem, the naive solution, why it fails, and the real solution used at scale. Volunteer these problems before the interviewer asks — it signals senior-level thinking.</p>
+
+      <div class="dive">
+        <div class="dive-head"><span class="tag">01</span> Media routing — P2P vs MCU vs SFU</div>
+        <div class="dive-body">
+          <p><strong>The problem:</strong> Deliver every participant's audio and video to everyone else in under 200 ms without melting client uplinks or server CPUs.</p>
+
+          <div class="dive-label fail">Naive solution — full-mesh peer-to-peer</div>
+          <pre>Each client sends its stream directly to every other client: N × (N-1) streams</pre>
+          <p><strong>Why it fails:</strong> With 10 people each client uploads 9 copies of its video. Phones and home uplinks collapse, batteries drain, and NAT traversal fails for many pairs. It only works for 1:1 calls.</p>
+
+          <div class="dive-label fix">Real solution — SFU with simulcast</div>
+          <pre>1. Each client uploads ONE set of streams to the SFU: audio plus 3 video
+   layers (simulcast): 180p, 360p, 720p.
+
+2. The SFU does not decode or re-encode. It just forwards RTP packets,
+   choosing per receiver which layer to send:
+     active speaker      → 720p
+     gallery thumbnails  → 180p
+     off-screen tiles    → paused
+
+3. Client uplink stays constant, regardless of meeting size.
+   Server cost is forwarding, which is cheap (packets/sec, not CPU-heavy).
+
+4. Audio: forward only the top ~3 loudest speakers to cap bandwidth.
+
+5. Screen share is an extra stream forwarded at high resolution, low fps.
+
+6. MCU alternative: mixes all streams into one composite. Low client
+   bandwidth, but very high server CPU and added latency. Used only for
+   legacy rooms and recording.
+
+<span class="c-dim">Rule of thumb: P2P for 1:1, SFU for groups, MCU only for
+recording or legacy SIP/H.323 endpoints.</span></pre>
+          <div class="insight insight-green">The key insight: upload once, let the server forward selectively. The SFU trades a little server bandwidth for constant client cost and low latency.</div>
+        </div>
+      </div>
+
+      <div class="dive">
+        <div class="dive-head"><span class="tag">02</span> Real-time transport — staying smooth on bad networks</div>
+        <div class="dive-body">
+          <p><strong>The problem:</strong> Keep latency under 200 ms while participants suffer packet loss, jitter and sudden bandwidth drops.</p>
+
+          <div class="dive-label fail">Naive solution — stream over TCP with big buffers</div>
+          <pre>Video over TCP/HTTP with a few seconds of buffering, like on-demand streaming</pre>
+          <p><strong>Why it fails:</strong> TCP retransmits lost packets and blocks everything behind them (head-of-line blocking), adding seconds of delay. Big buffers make conversation impossible because people talk over each other.</p>
+
+          <div class="dive-label fix">Real solution — WebRTC over UDP with adaptive control</div>
+          <pre>1. Media uses SRTP over UDP. A late packet is dropped, never waited for.
+
+2. Bandwidth estimation (Google Congestion Control / transport-wide feedback)
+   measures delay and loss continuously and tells the sender how much it
+   can push.
+
+3. Loss recovery, in order of cost:
+     NACK       → retransmit only if there is time before playout
+     FEC        → redundant packets, especially for audio (e.g. Opus in-band)
+     PLI / FIR  → request a keyframe when a video frame is unrecoverable
+
+4. Adaptive jitter buffer on receiver: ~40-100 ms, grows under jitter.
+
+5. Degrade in this order as the network worsens:
+     drop video layer → lower frame rate → turn video off → keep audio.
+   Audio is always protected.
+
+6. Connectivity: ICE tries direct UDP, then STUN-derived, then TURN/UDP,
+   then TURN over TCP/TLS on port 443 to get through strict firewalls.
+
+7. Place SFUs at the edge (many regions) and route by lowest RTT so the
+   first hop is short.
+
+<span class="c-dim">Each region's SFU also reports loss, jitter and RTT per call,
+so bad routes and overloaded nodes are detected in seconds.</span></pre>
+          <div class="insight insight-green">The key insight: in real-time media, late equals lost. Use UDP, adapt the bitrate continuously, and sacrifice video quality before audio continuity.</div>
+        </div>
+      </div>
+
+      <div class="dive">
+        <div class="dive-head"><span class="tag">03</span> Meeting state &amp; scale-out — placement, cascading, failover</div>
+        <div class="dive-body">
+          <p><strong>The problem:</strong> Route each meeting to an SFU, scale to 1000-person meetings that exceed one node, and survive node failures without ending calls.</p>
+
+          <div class="dive-label fail">Naive solution — random SFU per participant, one server per meeting forever</div>
+          <pre>Participant joins → load balancer picks any SFU
+Whole meeting pinned to one SFU until it ends</pre>
+          <p><strong>Why it fails:</strong> Participants of the same meeting land on different SFUs that cannot exchange media. A pinned SFU caps meeting size, adds latency for distant attendees, and its crash kills the meeting.</p>
+
+          <div class="dive-label fix">Real solution — meeting-aware placement + cascaded SFUs</div>
+          <pre>1. Meeting Service assigns a meeting to an SFU in the region closest to the
+   first joiner, stored in Redis as room:{id} → sfu_id.
+
+2. Later joiners are routed to the SFU for their own nearest region. SFUs
+   connect to each other and forward streams once per link (cascading):
+     India SFU ⇄ US SFU: one copy of each speaker's stream, not one per viewer.
+
+3. Large meetings: SFUs form a tree. Each leaf serves a few hundred viewers.
+   Webinar mode: only speakers publish, viewers receive-only and can also
+   use HLS with a few seconds of delay at 10K+ scale.
+
+4. Capacity-aware placement: pick the SFU by CPU, NIC bandwidth and number
+   of streams, not just round-robin.
+
+5. Failover: heartbeats detect a dead SFU within seconds. Clients get a
+   "reconnect" signal, re-run ICE to a replacement SFU, and the stream
+   resumes. Room state in Redis survives because it is not on the SFU.
+
+6. Signaling is sharded by meeting_id; Redis pub/sub fans room events out
+   to all signaling nodes holding that meeting's WebSockets.
+
+<span class="c-dim">Media servers are soft-state: the only truth is the meeting
+record and Redis. Replacing one mid-call costs a brief glitch, not the call.</span></pre>
+          <div class="insight insight-amber">Meeting records need strong consistency (who is host, is it locked). Presence and reactions can be eventually consistent. Keep media and control planes separate so a signaling blip never drops audio.</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="step" id="step7">
+      <span class="step-num">07 / Tradeoffs &amp; alternatives</span>
+      <h2>What we did NOT choose and why</h2>
+
+      <h3>Rejected alternatives</h3>
+      <table>
+        <tr><th>Alternative</th><th>Why rejected</th></tr>
+        <tr><td>Full-mesh P2P for groups</td><td>Uplink grows with N; fails NATs and mobile devices beyond a handful of users.</td></tr>
+        <tr><td>MCU (server mixes all streams)</td><td>Decoding and re-encoding per meeting is very expensive and adds latency; kept for recording only.</td></tr>
+        <tr><td>Media over TCP / HTTP streaming</td><td>Head-of-line blocking and buffering break real-time conversation.</td></tr>
+        <tr><td>CDN for live interactive media</td><td>Adds seconds of delay; fine for webinar viewers, wrong for participants.</td></tr>
+        <tr><td>Media through app servers</td><td>Not built for millions of UDP packets/sec; dedicated SFUs scale far better.</td></tr>
+        <tr><td>Recording via client upload</td><td>Unreliable and depends on the host's device; server-side recorder is consistent.</td></tr>
+        <tr><td>Always-on end-to-end encryption</td><td>Blocks cloud recording, transcription and server-side layer selection; offered as opt-in.</td></tr>
+      </table>
+
+      <h3>What breaks at 10× scale and how we fix it</h3>
+
+      <div class="dive" style="margin-top:16px">
+        <div class="dive-body">
+          <div class="dive-label fail">Problem — Top-of-the-hour join storm</div>
+          <p>Millions join at 9:00 AM sharp; the Meeting Service and SFUs see a sudden spike in joins.</p>
+          <div class="dive-label fix">Fix</div>
+          <p>Pre-warm SFU capacity before common start times, autoscale on join rate, rate-limit with queued retries, and cache meeting lookups in Redis.</p>
+        </div>
+      </div>
+
+      <div class="dive">
+        <div class="dive-body">
+          <div class="dive-label fail">Problem — Huge single meeting or webinar</div>
+          <p>One event with tens of thousands of viewers exceeds any single SFU.</p>
+          <div class="dive-label fix">Fix</div>
+          <p>Cascaded SFU tree for interactive attendees, receive-only viewer tiers, and an HLS/CDN path for very large audiences who do not need sub-second latency.</p>
+        </div>
+      </div>
+
+      <div class="dive">
+        <div class="dive-body">
+          <div class="dive-label fail">Problem — Bandwidth cost explosion</div>
+          <p>Ingress and egress are both ~50 Tbps with no cache to absorb it.</p>
+          <div class="dive-label fix">Fix</div>
+          <p>Forward only needed layers, pause off-screen video, cap audio to top speakers, use efficient codecs (Opus, VP9/AV1 where CPU allows), and peer directly with ISPs and cloud backbones.</p>
+        </div>
+      </div>
+
+      <div class="dive">
+        <div class="dive-body">
+          <div class="dive-label fail">Problem — Regional outage</div>
+          <p>A media region or its network goes down mid-call.</p>
+          <div class="dive-label fix">Fix</div>
+          <p>Keep room state outside SFUs, detect failure by heartbeat, reassign the meeting to the next-nearest region, and let clients auto-reconnect via signaling within seconds.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="step" id="step8">
+      <span class="step-num">08 / Summary</span>
+      <h2>Cheat sheet</h2>
+      <p class="lead">The ten things worth remembering before walking into the room.</p>
+
+      <div class="cheat-grid">
+        <div class="cheat-cell"><h4>Key numbers</h4><p>300M daily participants · ~30M concurrent · ~20K peak joins/sec · ~50 Tbps in and out · &lt;200 ms latency · ~0.7 PB/day recordings</p></div>
+        <div class="cheat-cell"><h4>Key datastores</h4><p>PostgreSQL/MySQL + Redis (meetings, room state) · Cassandra (chat) · Object storage (recordings) · Kafka (events, recording jobs)</p></div>
+        <div class="cheat-cell"><h4>Media strategy</h4><p>WebRTC over UDP; SFU forwards simulcast layers; clients upload once regardless of meeting size.</p></div>
+        <div class="cheat-cell"><h4>Connectivity strategy</h4><p>ICE: direct → STUN → TURN/UDP → TURN/TCP 443. DTLS-SRTP encryption on every hop.</p></div>
+        <div class="cheat-cell"><h4>Scale-out strategy</h4><p>Region-aware placement, cascaded SFUs, capacity-aware assignment, HLS for huge webinars.</p></div>
+        <div class="cheat-cell"><h4>Meeting state machine</h4><p>SCHEDULED → LIVE → ENDED. Status and host changes are conditional updates on the meeting record.</p></div>
+        <div class="cheat-cell"><h4>Key tradeoffs</h4><p>Latency vs quality. SFU vs MCU cost. E2EE vs recording and transcription. Regions count vs ops cost.</p></div>
+        <div class="cheat-cell"><h4>Hardest part</h4><p>Keeping sub-200 ms media flowing over unpredictable networks while fanning out at 50 Tbps with no caching.</p></div>
+        <div class="cheat-cell"><h4>Sharding keys</h4><p>Meetings → meeting_id · Chat → meeting_id · Room state → meeting_id · Recordings → meeting_id + segment</p></div>
+        <div class="cheat-cell"><h4>Interview time map</h4><p>0–3 min: clarify · 3–7: requirements + estimation · 7–16: HLD + flow · 16–23: data + storage · 23–29: deep dives · 29–30: tradeoffs</p></div>
+      </div>
+
+      <h3>Media topologies — at a glance</h3>
+      <table>
+        <tr><th>Approach</th><th>How it works</th><th>Strength</th><th>Best for</th></tr>
+        <tr><td>P2P mesh</td><td>Every client sends to every other</td><td>No media servers</td><td>1:1 calls</td></tr>
+        <tr><td>SFU</td><td>Server forwards selected streams, no decoding</td><td>Low latency, scalable</td><td>Group meetings</td></tr>
+        <tr><td>MCU</td><td>Server mixes streams into one</td><td>Minimal client load</td><td>Recording, legacy rooms</td></tr>
+        <tr><td>Cascaded SFU</td><td>SFUs relay between regions</td><td>Global reach, big meetings</td><td>Large and global calls</td></tr>
+        <tr><td>HLS / CDN</td><td>Segmented streaming to viewers</td><td>Massive audience</td><td>Webinars, broadcasts</td></tr>
+      </table>
+    </section>
+
+  </main>
+</div>
+
+<footer>
+  <span>System Design Case Study — Video Conferencing System · Zoom style</span>
+  <span>Written as a high-level design walkthrough</span>
+</footer>
+
+<script>
+  const links = document.querySelectorAll('nav.toc a');
+  const sections = document.querySelectorAll('section.step');
+  const obs = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const id = entry.target.getAttribute('id');
+        links.forEach(l => l.classList.toggle('active', l.getAttribute('href') === '#' + id));
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  sections.forEach(s => obs.observe(s));
+</script>
+
+</body>
+</html>
