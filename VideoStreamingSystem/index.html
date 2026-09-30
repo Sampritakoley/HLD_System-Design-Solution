@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Designing a Video Streaming System — System Design Case Study</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--paper:#FAF8F4;--paper-raised:#FFFFFF;--ink:#16181C;--ink-soft:#52524E;--ink-faint:#8A887F;--line:#DEDAD0;--line-strong:#C7C2B5;--signal:#D85A30;--signal-soft:#FAECE7;--signal-deep:#4A1B0C;--mono:'JetBrains Mono',monospace;--sans:'Inter',sans-serif}
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased}
+  a{color:var(--signal);text-decoration:none}
+  a:hover{text-decoration:underline}
+  a:focus-visible,button:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+  .author-badge{position:fixed;top:18px;right:24px;z-index:50;display:flex;align-items:center;background:var(--signal);border:1px solid var(--signal);padding:8px 16px;border-radius:999px;box-shadow:0 2px 14px rgba(216,90,48,0.35)}
+  .author-badge .author-text{display:flex;flex-direction:column;line-height:1.3}
+  .author-badge .author-name{font-size:12.5px;font-weight:600;color:#fff}
+  .author-badge .author-links{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10.5px}
+  .author-badge .author-links a{color:rgba(255,255,255,0.75);text-decoration:none}
+  .author-badge .author-links a:hover{color:#fff;text-decoration:underline}
+  @media (max-width:640px){.author-badge{position:static;margin:14px 32px 0;width:fit-content}}
+  header.hero{max-width:1080px;margin:0 auto;padding:64px 32px 48px;border-bottom:1px solid var(--line)}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);display:flex;align-items:center;gap:10px;margin-bottom:20px}
+  .eyebrow::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--signal);display:inline-block}
+  h1{font-size:44px;font-weight:700;letter-spacing:-0.02em;line-height:1.12;max-width:760px}
+  h1 em{font-style:normal;color:var(--signal)}
+  .hero-sub{margin-top:18px;font-size:18px;color:var(--ink-soft);max-width:620px}
+  .hero-meta{display:flex;gap:28px;margin-top:32px;flex-wrap:wrap}
+  .hero-meta-item{font-family:var(--mono);font-size:12px;color:var(--ink-faint)}
+  .hero-meta-item b{color:var(--ink);font-weight:600;display:block;font-size:14px;margin-top:2px}
+  .layout{max-width:1080px;margin:0 auto;display:grid;grid-template-columns:200px 1fr;gap:56px;padding:0 32px}
+  nav.toc{position:sticky;top:32px;align-self:start;padding-top:48px;font-family:var(--mono);font-size:12px}
+  nav.toc a{display:block;color:var(--ink-faint);padding:6px 0;border-left:2px solid transparent;padding-left:12px;margin-left:-13px;transition:color .15s,border-color .15s}
+  nav.toc a:hover,nav.toc a.active{color:var(--ink);border-left-color:var(--signal);text-decoration:none}
+  main{padding:48px 0 80px;min-width:0}
+  section.step{padding:40px 0;border-bottom:1px solid var(--line)}
+  section.step:first-child{padding-top:0}
+  .step-num{font-family:var(--mono);font-size:13px;color:var(--signal);font-weight:600;margin-bottom:8px;display:block}
+  h2{font-size:26px;font-weight:700;letter-spacing:-0.01em;margin-bottom:18px}
+  h3{font-size:16px;font-weight:600;margin:28px 0 12px}
+  p{margin-bottom:14px;color:var(--ink);max-width:680px}
+  p.lead{font-size:17px;color:var(--ink-soft)}
+  ul,ol{margin:0 0 16px 0;padding-left:0;max-width:680px}
+  li{list-style:none;padding-left:20px;position:relative;margin-bottom:8px;font-size:15px}
+  li::before{content:'—';position:absolute;left:0;color:var(--ink-faint)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin:20px 0}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin:20px 0}
+  .card{background:var(--paper-raised);border:1px solid var(--line);padding:18px 20px}
+  .card h4{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-faint);font-weight:600;margin-bottom:10px}
+  .card p{font-size:14px;margin-bottom:0}
+  .card ul{margin:0}
+  .card li{font-size:13px}
+  .metric{border-left:2px solid var(--signal);padding:4px 0 4px 16px}
+  .metric .num{font-family:var(--mono);font-size:28px;font-weight:600;color:var(--ink);display:block;line-height:1.1}
+  .metric .label{font-size:12px;color:var(--ink-faint);margin-top:2px}
+  .insight{border-left:2px solid;padding:10px 16px;margin:12px 0;font-size:14px;line-height:1.65;max-width:680px}
+  .insight-amber{border-color:#B07D2B;background:#FBF5E8;color:#5A3D0A}
+  .insight-green{border-color:#3B6D11;background:#EEF7E8;color:#1E3B08}
+  pre{font-family:var(--mono);font-size:12.5px;line-height:1.8;background:var(--ink);color:#E9E7DF;padding:20px 22px;overflow-x:auto;margin:16px 0;border-radius:2px}
+  pre .c-num{color:var(--signal)}
+  pre .c-dim{color:#8A887F}
+  code.inline{font-family:var(--mono);font-size:13px;background:var(--signal-soft);color:var(--signal-deep);padding:1px 6px;border-radius:2px}
+  table{width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;max-width:760px}
+  th{text-align:left;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-faint);font-weight:600;padding:8px 12px;border-bottom:1px solid var(--line-strong)}
+  td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top;color:var(--ink-soft)}
+  td:first-child{color:var(--ink);font-weight:500}
+  .dive{border:1px solid var(--line);margin:24px 0}
+  .dive-head{background:var(--ink);color:var(--paper);padding:12px 18px;font-family:var(--mono);font-size:13px;font-weight:500;display:flex;align-items:center;gap:10px}
+  .dive-head .tag{background:var(--signal);color:#fff;font-size:10px;padding:2px 7px;text-transform:uppercase;letter-spacing:.05em}
+  .dive-body{padding:20px 22px}
+  .dive-label{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin:18px 0 6px}
+  .dive-label.fail{color:#A32D2D}
+  .dive-label.fix{color:#3B6D11}
+  .dive-body p{font-size:14px}
+  .arch-wrap{background:var(--ink);padding:24px;overflow-x:auto;margin:20px 0}
+  .arch-wrap pre{background:transparent;padding:0;margin:0}
+  .comp-list{border:1px solid var(--line);margin:16px 0}
+  .comp-item{padding:14px 16px;border-bottom:1px solid var(--line)}
+  .comp-item:last-child{border-bottom:none}
+  .comp-name{font-weight:600;font-size:14px;margin-bottom:4px;color:var(--ink)}
+  .comp-why{font-size:13px;color:var(--ink-soft);line-height:1.6}
+  .q{font-size:13px;padding:9px 14px;background:var(--paper-raised);border:1px solid var(--line);margin:6px 0;color:var(--ink-soft);line-height:1.6}
+  .q::before{content:"? ";font-size:12px;color:var(--ink-faint);font-family:var(--mono)}
+  .cheat-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);margin:20px 0}
+  .cheat-cell{background:var(--paper-raised);padding:16px 18px}
+  .cheat-cell h4{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--signal);font-weight:600;margin-bottom:6px}
+  .cheat-cell p{font-size:13px;margin:0;color:var(--ink-soft)}
+  footer{border-top:1px solid var(--line);padding:40px 32px 60px;max-width:1080px;margin:0 auto;font-family:var(--mono);font-size:12px;color:var(--ink-faint);display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+  @media (max-width:840px){
+    .layout{grid-template-columns:1fr;gap:0}
+    nav.toc{position:static;display:flex;overflow-x:auto;gap:4px;padding:16px 0;border-bottom:1px solid var(--line);white-space:nowrap}
+    nav.toc a{border-left:none;border-bottom:2px solid transparent;margin-left:0;padding:6px 10px}
+    nav.toc a:hover,nav.toc a.active{border-left-color:transparent;border-bottom-color:var(--signal)}
+    h1{font-size:32px}
+    .grid2,.grid3{grid-template-columns:1fr}
+    .cheat-grid{grid-template-columns:1fr}
+    .hero-meta{gap:18px}
+  }
+</style>
+</head>
+<body>
+
+<div class="author-badge">
+  <div class="author-text">
+    <span class="author-name">Samprita Koley</span>
+    <span class="author-links">
+      <a href="mailto:sampritakoley01@gmail.com">sampritakoley01@gmail.com</a>
+      <span style="color:rgba(255,255,255,0.4)">·</span>
+      <a href="https://www.linkedin.com/in/sampritakoley/" target="_blank" rel="noopener">LinkedIn</a>
+    </span>
+  </div>
+</div>
+
+<header class="hero">
+  <div class="eyebrow">System Design Case Study</div>
+  <h1>Designing a Video Streaming System when <em>500 million people</em> press play daily.</h1>
+  <p class="hero-sub">A complete high-level design walkthrough — requirements, capacity estimation, architecture, data model, and three deep dives into the hardest problems: upload and transcoding, adaptive streaming over a CDN, and view counting at scale.</p>
+  <div class="hero-meta">
+    <div class="hero-meta-item">SCOPE<b>Upload · Transcode · Stream · Discover</b></div>
+    <div class="hero-meta-item">FORMAT<b>8-step HLD walkthrough</b></div>
+    <div class="hero-meta-item">FOCUS<b>Transcoding pipeline &amp; CDN delivery</b></div>
+  </div>
+</header>
+
+<div class="layout">
+  <nav class="toc" id="toc">
+    <a href="#step1">01 · Problem</a>
+    <a href="#step2">02 · Requirements</a>
+    <a href="#step3">03 · Estimation</a>
+    <a href="#step4">04 · Architecture</a>
+    <a href="#step5">05 · Database</a>
+    <a href="#step6">06 · Deep Dives</a>
+    <a href="#step7">07 · Tradeoffs</a>
+    <a href="#step8">08 · Cheat Sheet</a>
+  </nav>
+
+  <main>
+
+    <section class="step" id="step1">
+      <span class="step-num">01 / Understanding the problem</span>
+      <h2>What is this system, really?</h2>
+      <p class="lead">A video platform lets creators upload videos once and lets millions of viewers watch them instantly on any device and network. Think of it as a giant media factory (upload, convert, store) bolted to a global delivery network.</p>
+      <p>The core challenge: videos are huge, viewers are everywhere on wildly different connections, and reads outnumber writes by roughly 1000:1. Bytes served, not database queries, is the bottleneck.</p>
+
+      <h3>Core features in scope</h3>
+      <div class="grid2">
+        <div class="card"><h4>Upload video</h4><p>Creators upload large files reliably, add title, description and thumbnail, and publish.</p></div>
+        <div class="card"><h4>Watch video</h4><p>Playback starts in under 2 seconds with no buffering, adapting to the viewer's bandwidth.</p></div>
+        <div class="card"><h4>Search &amp; discover</h4><p>Search by title or tags, home feed and "up next" recommendations.</p></div>
+        <div class="card"><h4>Engagement</h4><p>Views, likes, comments and subscriptions, with counts that feel live.</p></div>
+      </div>
+
+      <h3>What makes this hard at scale</h3>
+      <ul>
+        <li><strong>Huge files.</strong> Uploads are gigabytes; they must survive flaky networks and resume.</li>
+        <li><strong>Transcoding cost.</strong> Every video becomes many resolutions and codecs; it is CPU-heavy and slow.</li>
+        <li><strong>Egress bandwidth.</strong> Tens of Tbps of video leaves the system; origin servers alone can never serve it.</li>
+        <li><strong>Device diversity.</strong> Phones on 3G and TVs on fibre need different bitrates of the same video.</li>
+        <li><strong>Viral spikes.</strong> One video can go from zero to millions of concurrent viewers in minutes.</li>
+      </ul>
+    </section>
+
+    <section class="step" id="step2">
+      <span class="step-num">02 / Requirements</span>
+      <h2>Functional vs. non-functional requirements</h2>
+      <p class="lead">Non-functional requirements are what actually drive architecture decisions — they're listed first for a reason.</p>
+
+      <div class="grid2">
+        <div class="card">
+          <h4>Functional</h4>
+          <ul>
+            <li>Upload videos with metadata and thumbnail</li>
+            <li>Stream videos on web, mobile and TV</li>
+            <li>Search by title, tag and channel</li>
+            <li>Like, comment, subscribe</li>
+            <li>View counts and watch history</li>
+            <li>Personalised home feed and recommendations</li>
+            <li>Resume playback from last position</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h4>Non-functional</h4>
+          <ul>
+            <li>500M DAU, ~2.5B views/day</li>
+            <li>Playback start &lt; 2 seconds (p95)</li>
+            <li>99.99% availability for playback</li>
+            <li>Uploaded videos are never lost (11 nines durability)</li>
+            <li>Video live within minutes of upload</li>
+            <li>View counts eventually consistent</li>
+            <li>Smooth playback on poor networks</li>
+            <li>Cost-efficient storage and bandwidth</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>Clarifying questions</h3>
+      <div class="q">Only on-demand video, or live streaming too? Live changes latency and ingest entirely.</div>
+      <div class="q">Maximum video length and size? This decides chunked and resumable upload.</div>
+      <div class="q">Which devices and resolutions, up to 4K? This sets the transcoding ladder.</div>
+      <div class="q">Global audience or one region? Decides CDN footprint and data residency.</div>
+      <div class="q">Is monetisation (ads) in scope, or content moderation and copyright checks?</div>
+      <div class="q">How exact must view counts be — live to the second, or approximate?</div>
+    </section>
+
+    <section class="step" id="step3">
+      <span class="step-num">03 / Estimation</span>
+      <h2>Back-of-envelope math</h2>
+      <p class="lead">Order-of-magnitude accuracy is the goal here, not precision. Every assumption is stated explicitly.</p>
+
+      <div class="grid3">
+        <div class="metric"><span class="num">~100K/s</span><span class="label">Peak video starts</span></div>
+        <div class="metric"><span class="num">~100 Tbps</span><span class="label">Peak egress</span></div>
+        <div class="metric"><span class="num">~4 PB/day</span><span class="label">New storage</span></div>
+      </div>
+
+      <h3>Assumptions</h3>
+      <pre>DAU                     = 500M, ~5 videos watched per user per day
+Views per day           = 2.5B  (average ~30K/sec, peak ~3-4x)
+Watch time              = ~1 hour per user per day → 500M hours/day
+Average bitrate         = 2.5 Mbps ≈ 1.1 GB per hour watched
+Uploads                 = 5M videos/day, average 500 MB original
+Read : write ratio      = ~500 views per upload (and more on hot videos)
+Metadata per video      = ~2 KB</pre>
+
+      <h3>QPS</h3>
+      <pre>Video starts (manifest + first segments):
+  2.5B / 86,400                = ~30K/sec avg → <span class="c-num">~100K/sec peak</span>
+
+Uploads:
+  5M / 86,400                  = <span class="c-num">~60 videos/sec</span>
+
+View-count events:
+  2.5B / 86,400                = ~30K writes/sec → batch and aggregate
+
+<span class="c-dim">Metadata QPS is modest. The real load is bytes: keep video off
+application servers entirely and serve it from object storage and CDN.</span></pre>
+
+      <h3>Storage</h3>
+      <pre>Originals:
+  5M × 500 MB                  = <span class="c-num">~2.5 PB/day</span>
+
+Transcoded renditions (~6 resolutions, ~1.5x original in total):
+  2.5 PB × 1.5                 = ~3.75 PB/day → <span class="c-num">~1.4 EB/year</span>
+
+Metadata:
+  5M × 2 KB                    = ~10 GB/day (tiny)
+
+<span class="c-dim">Tier storage by age: hot videos on SSD-backed CDN, long tail on cheap
+cold object storage. Most videos are almost never watched.</span></pre>
+
+      <h3>Bandwidth &amp; connections</h3>
+      <pre>Egress                   = 500M hrs × 1.1 GB / 86,400 s ≈ 6.4 TB/s = <span class="c-num">~50 Tbps avg, ~100 Tbps peak</span>
+Concurrent streams       = 500M hrs / 24 ≈ 20M avg, ~50M peak
+Ingress (uploads)        = 2.5 PB/day ≈ 30 GB/s ≈ <span class="c-num">~250 Gbps</span>
+
+<span class="c-dim">Egress is ~400x ingress. A CDN with a 95%+ hit rate is not optional;
+origin then only serves ~5 Tbps of cache misses.</span></pre>
+    </section>
+
+    <section class="step" id="step4">
+      <span class="step-num">04 / High-level design</span>
+      <h2>Architecture</h2>
+      <p class="lead">Built top-down from the client. Every box exists because of a number from Step 3.</p>
+
+      <div class="arch-wrap">
+<pre>CREATOR                                        VIEWER (web / mobile / TV)
+   │ resumable upload (chunks)                    │ GET manifest, then segments
+   ▼                                              ▼
+[ API Gateway / LB ] ◄────────────────────► [ CDN edge ] ──miss──► [ Origin / Object store ]
+   │                                              ▲                        ▲
+   ├──► [ Upload Service ] ──► [ Raw bucket ]     │                        │
+   │            │                                 │               [ Processed bucket ]
+   │            ▼                                 │                        ▲
+   │        [ Kafka ] ──► [ Transcoding Workers (DAG) ] ─────────────────┘
+   │            │                   └──► thumbnails · moderation · packaging (HLS/DASH)
+   │            ▼
+   ├──► [ Metadata Service ] ◄──► [ Metadata DB + Redis cache ]
+   ├──► [ Search Service ] ◄──► [ Elasticsearch ]
+   ├──► [ Recommendation / Feed ]
+   └──► [ Engagement Service ] ──► [ Kafka ] ──► [ Stream aggregator ] ──► [ Counters DB ]
+
+<span class="c-dim">Video bytes never touch app servers: clients upload to and stream from object storage / CDN directly</span></pre>
+      </div>
+
+      <h3>Component rationale</h3>
+      <div class="comp-list">
+        <div class="comp-item">
+          <div class="comp-name">Upload service + object storage</div>
+          <div class="comp-why">Issues pre-signed URLs so clients upload chunks straight to object storage. App servers only track upload state, which keeps them cheap and stateless.</div>
+        </div>
+        <div class="comp-item">
+          <div class="comp-name">Kafka + transcoding workers</div>
+          <div class="comp-why">An upload-complete event triggers a pipeline that splits the video into chunks, encodes each into every resolution in parallel, and packages HLS/DASH segments. Queueing absorbs bursts.</div>
+        </div>
+        <div class="comp-item">
+          <div class="comp-name">Processed bucket (origin)</div>
+          <div class="comp-why">Durable, replicated store of all renditions, segments and manifests. The CDN pulls from here on a cache miss.</div>
+        </div>
+        <div class="comp-item">
+          <div class="comp-name">CDN</div>
+          <div class="comp-why">Caches popular segments in edge locations close to viewers. This is what makes 100 Tbps possible and keeps start-up latency low.</div>
+        </div>
+        <div class="comp-item">
+          <div class="comp-name">Metadata service + DB + cache</div>
+          <div class="comp-why">Titles, channels, status, and manifest locations. Read-heavy, so a sharded SQL store fronted by Redis handles it easily.</div>
+        </div>
+        <div class="comp-item">
+          <div class="comp-name">Search, recommendations &amp; engagement</div>
+          <div class="comp-why">Elasticsearch indexes metadata for search. Recommendations and view counters consume Kafka events asynchronously, off the playback path.</div>
+        </div>
+      </div>
+
+      <h3>End-to-end data flow — "creator uploads, viewer watches"</h3>
+      <ol>
+        <li>Creator starts an upload; Upload Service creates a record in <code class="inline">UPLOADING</code> state and returns pre-signed chunk URLs.</li>
+        <li>Client uploads chunks in parallel to the raw bucket; any failed chunk is retried, and the upload can resume.</li>
+        <li>On completion, an event goes to Kafka and status becomes <code class="inline">PROCESSING</code>.</li>
+        <li>The transcoding DAG splits the video, encodes each chunk into 240p–4K, extracts thumbnails and runs moderation and copyright checks.</li>
+        <li>Segments and manifests are written to the processed bucket; metadata flips to <code class="inline">READY</code> and the video is indexed for search.</li>
+        <li>Viewer opens the video; the metadata service returns the manifest URL (from cache).</li>
+        <li>The player fetches the manifest from the CDN, picks a starting quality, then requests segments and switches quality as bandwidth changes.</li>
+        <li>Play, pause and completion events stream to Kafka for view counts, history and recommendations.</li>
+      </ol>
+    </section>
+
+    <section class="step" id="step5">
+      <span class="step-num">05 / Database design</span>
+      <h2>Storage layer</h2>
+      <p class="lead">Different data, different access patterns, different stores — huge blobs in object storage, small relational metadata in SQL, counters in a fast aggregated store.</p>
+
+      <table>
+        <tr><th>Data</th><th>Store</th><th>Why</th></tr>
+        <tr><td>Raw and transcoded video</td><td>Object storage (S3 / GCS)</td><td>Cheap, durable, effectively unlimited</td></tr>
+        <tr><td>Video and user metadata</td><td>MySQL / PostgreSQL (sharded) + Redis</td><td>Relations, transactions, read-heavy</td></tr>
+        <tr><td>Comments, watch history</td><td>Cassandra / Bigtable</td><td>Huge append-heavy data keyed by video or user</td></tr>
+        <tr><td>View and like counters</td><td>Redis + Kafka → aggregated DB</td><td>Very hot writes, eventual consistency</td></tr>
+        <tr><td>Search index</td><td>Elasticsearch</td><td>Full-text search and ranking</td></tr>
+      </table>
+
+      <h3>Core tables and keys</h3>
+      <pre>-- PostgreSQL / MySQL (videos)
+CREATE TABLE videos (
+  video_id     BIGINT PRIMARY KEY,       -- snowflake id
+  channel_id   BIGINT NOT NULL,
+  title        TEXT NOT NULL,
+  description  TEXT,
+  status       TEXT NOT NULL,            -- UPLOADING | PROCESSING | READY | FAILED | REMOVED
+  duration_sec INT,
+  manifest_url TEXT,                     -- HLS / DASH master playlist
+  raw_key      TEXT,                     -- object-storage path of the original
+  created_at   TIMESTAMP DEFAULT now()
+);
+
+-- Cassandra
+comments:  PK ((video_id), created_at DESC, comment_id)
+history:   PK ((user_id), watched_at DESC)
+
+-- Redis
+Key: video:{id}            Value: HASH { title, channel, manifest_url, status }   TTL 1h
+Key: views:{id}            Value: counter, flushed to DB every few seconds</pre>
+
+      <h3>Sharding strategy</h3>
+      <ul>
+        <li><strong>Metadata</strong> — shard by <code class="inline">video_id</code> for even spread; replicas absorb reads.</li>
+        <li><strong>Comments</strong> — partition by video_id so one video's comments are read together.</li>
+        <li><strong>History</strong> — partition by user_id; queries are always "this user's recent videos".</li>
+        <li><strong>Video objects</strong> — keyed by video_id and rendition; replicated across regions, tiered to cold storage as they age.</li>
+      </ul>
+    </section>
+
+    <section class="step" id="step6">
+      <span class="step-num">06 / Deep dives</span>
+      <h2>Deep dive on 3 critical components</h2>
+      <p class="lead">For each: the problem, the naive solution, why it fails, and the real solution used at scale. Volunteer these problems before the interviewer asks — it signals senior-level thinking.</p>
+
+      <div class="dive">
+        <div class="dive-head"><span class="tag">01</span> Upload &amp; transcoding — turn one raw file into many playable formats</div>
+        <div class="dive-body">
+          <p><strong>The problem:</strong> Accept multi-gigabyte files over unreliable networks, then convert each into many resolutions and codecs quickly, at 60 videos per second.</p>
+
+          <div class="dive-label fail">Naive solution — single POST upload, one server encodes the whole file</div>
+          <pre>POST /upload (whole file)  →  app server  →  ffmpeg -i input.mp4 → 720p.mp4</pre>
+          <p><strong>Why it fails:</strong> A dropped connection restarts a 2 GB upload, file bytes choke the app servers, and encoding a long video on one machine takes hours. One crash loses everything.</p>
+
+          <div class="dive-label fix">Real solution — resumable chunked upload + parallel transcoding DAG</div>
+          <pre>1. Client splits the file into ~5-10 MB chunks and uploads them in parallel
+   to object storage via pre-signed URLs. Upload Service records which chunks
+   arrived, so a dropped connection resumes from the last good chunk.
+
+2. "Upload complete" event → Kafka → Transcoding Orchestrator.
+
+3. Orchestrator builds a DAG of tasks:
+     split into ~10s GOP-aligned segments
+       → encode each segment per rendition (240p ... 4K, H.264 / VP9 / AV1)
+       → merge and package as HLS / DASH segments + manifests
+     in parallel: thumbnails, audio tracks, captions, moderation, copyright fingerprint
+
+4. Stateless workers pull tasks from queues; a failed task is retried alone,
+   not the whole video. Segments make encoding embarrassingly parallel.
+
+5. Status moves PROCESSING → READY. Publish the lowest rungs first so the
+   video becomes watchable in minutes, then add 4K later.
+
+6. Cost control: priority queues (new creators and popular channels first),
+   cheaper codecs for the long tail, spot instances for workers.
+
+<span class="c-dim">A 1-hour video split into 360 segments can be encoded by hundreds
+of workers at once, cutting wall-clock time from hours to minutes.</span></pre>
+          <div class="insight insight-green">The key insight: clients talk to object storage directly, and transcoding is a DAG of small, retryable, parallel tasks, not one long job.</div>
+        </div>
+      </div>
+
+      <div class="dive">
+        <div class="dive-head"><span class="tag">02</span> Streaming delivery — adaptive bitrate over a CDN</div>
+        <div class="dive-body">
+          <p><strong>The problem:</strong> Start playback in under 2 seconds for millions of viewers on different devices and networks, without buffering, while pushing ~100 Tbps.</p>
+
+          <div class="dive-label fail">Naive solution — serve one MP4 file from our servers</div>
+          <pre>GET /videos/123.mp4   →  origin streams the whole file</pre>
+          <p><strong>Why it fails:</strong> A single high-quality file buffers on slow networks and wastes data on small screens. Origin servers cannot carry tens of Tbps, and far-away viewers suffer high latency.</p>
+
+          <div class="dive-label fix">Real solution — segmented ABR streaming (HLS / MPEG-DASH) + CDN</div>
+          <pre>1. Each video exists as a ladder of renditions, each cut into 2-6 s segments.
+   A master manifest (.m3u8 / .mpd) lists every rendition and segment URL.
+
+2. Player downloads the manifest, starts at a safe low quality for a fast
+   first frame, then measures throughput and buffer level and switches
+   quality per segment (adaptive bitrate).
+
+3. Segments are plain HTTP files, so a CDN caches them like static assets.
+   Viewer → nearest edge → regional cache → origin (only on a miss).
+
+4. Cache hierarchy: edge (hot) → regional mid-tier → origin shield, so a
+   viral video causes one origin fetch per segment, not millions.
+
+5. Proactively push (pre-warm) segments of trending or new big-channel
+   videos to edges; leave the long tail to pull on demand.
+
+6. Protect origin: request coalescing, long TTLs for immutable segments,
+   signed URLs or tokens to prevent hotlinking.
+
+<span class="c-dim">Segments are immutable, so they can be cached for a very long time.
+Only the manifest of a live or edited video needs short TTLs.</span></pre>
+          <div class="insight insight-green">The key insight: turn video into small static files so the existing HTTP CDN machinery does the heavy lifting, and let the client choose quality.</div>
+        </div>
+      </div>
+
+      <div class="dive">
+        <div class="dive-head"><span class="tag">03</span> View counts &amp; metadata — hot keys at scale</div>
+        <div class="dive-body">
+          <p><strong>The problem:</strong> Count 30K view events per second, show near-live totals, and serve metadata for a video that millions open at once, without melting the database.</p>
+
+          <div class="dive-label fail">Naive solution — increment a DB row per view and read metadata from the DB</div>
+          <pre>UPDATE videos SET views = views + 1 WHERE video_id = ?
+SELECT * FROM videos WHERE video_id = ?</pre>
+          <p><strong>Why it fails:</strong> Every view contends on the same row lock for a viral video, and each page load hits the database. Write contention and read load on a single shard cripple it.</p>
+
+          <div class="dive-label fix">Real solution — aggregate asynchronously, cache aggressively</div>
+          <pre>1. Player sends a view event (after ~30 s of watching, to avoid spam).
+   Events go to Kafka, partitioned by video_id.
+
+2. A stream processor (Flink / Kafka Streams) aggregates counts per video
+   in small windows and writes one batched update every few seconds.
+
+3. Hot counters live in Redis (INCRBY); the DB stores the durable total.
+   The UI shows a slightly stale number, which is fine.
+
+4. Fraud and bot filtering runs in the same stream, before counts are final.
+
+5. Metadata reads: cache-aside in Redis with a TTL, plus a local in-process
+   cache on each app server for the hottest videos. Replicas absorb the rest.
+
+6. Hot key protection: replicate a viral video's key across several cache
+   nodes (key suffix or local cache) so one node is not the bottleneck.
+
+<span class="c-dim">Accuracy tradeoff: exact counts are not needed in real time.
+Approximate now, reconciled from the event log later.</span></pre>
+          <div class="insight insight-amber">Counts and likes need only eventual consistency; the video's status and manifest need accuracy. Use the right guarantee for each and never put either on the playback critical path.</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="step" id="step7">
+      <span class="step-num">07 / Tradeoffs &amp; alternatives</span>
+      <h2>What we did NOT choose and why</h2>
+
+      <h3>Rejected alternatives</h3>
+      <table>
+        <tr><th>Alternative</th><th>Why rejected</th></tr>
+        <tr><td>Serve video from app servers</td><td>Cannot carry Tbps of egress; object storage plus CDN is cheaper and scales by itself.</td></tr>
+        <tr><td>Single progressive MP4 per video</td><td>No adaptation to bandwidth, poor seeking, constant buffering on weak networks.</td></tr>
+        <tr><td>Upload through the backend</td><td>Wastes server bandwidth; pre-signed direct uploads are simpler and resumable.</td></tr>
+        <tr><td>Transcode on upload in the request</td><td>Slow and fragile; an async DAG with retries is reliable and parallel.</td></tr>
+        <tr><td>Store video blobs in a database</td><td>Databases are the wrong tool for petabytes; keep only pointers there.</td></tr>
+        <tr><td>Exact real-time view counts</td><td>Hot-row contention for little value; batched eventual counts are enough.</td></tr>
+        <tr><td>WebRTC for on-demand playback</td><td>Built for ultra-low latency calls; HTTP segments are cheaper and cache well for VOD.</td></tr>
+      </table>
+
+      <h3>What breaks at 10× scale and how we fix it</h3>
+
+      <div class="dive" style="margin-top:16px">
+        <div class="dive-body">
+          <div class="dive-label fail">Problem — Viral video and cold-cache stampede</div>
+          <p>A new video explodes; every edge misses at once and floods the origin with requests for the same segments.</p>
+          <div class="dive-label fix">Fix</div>
+          <p>Origin shield and request coalescing so each segment is fetched once, pre-warming for predicted hits, and multi-CDN failover for extra capacity.</p>
+        </div>
+      </div>
+
+      <div class="dive">
+        <div class="dive-body">
+          <div class="dive-label fail">Problem — Transcoding backlog</div>
+          <p>A burst of uploads (or a new codec rollout) grows the queue, and creators wait hours for their videos to go live.</p>
+          <div class="dive-label fix">Fix</div>
+          <p>Autoscale workers on queue depth, use priority lanes, publish low resolutions first, and encode rarely watched videos in cheaper, slower batches.</p>
+        </div>
+      </div>
+
+      <div class="dive">
+        <div class="dive-body">
+          <div class="dive-label fail">Problem — Storage cost explosion</div>
+          <p>Exabytes of renditions keep growing while most videos are almost never watched.</p>
+          <div class="dive-label fix">Fix</div>
+          <p>Tier by popularity and age, drop rarely used high-bitrate renditions and re-create on demand, use better codecs (AV1) for popular videos, and dedupe reuploads by content fingerprint.</p>
+        </div>
+      </div>
+
+      <div class="dive">
+        <div class="dive-body">
+          <div class="dive-label fail">Problem — Regional outage</div>
+          <p>A region hosting metadata or an origin bucket goes down, breaking playback and uploads for its users.</p>
+          <div class="dive-label fix">Fix</div>
+          <p>Replicate objects and metadata across regions, route viewers to the nearest healthy origin, and keep CDN-cached content playable even while origin is degraded.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="step" id="step8">
+      <span class="step-num">08 / Summary</span>
+      <h2>Cheat sheet</h2>
+      <p class="lead">The ten things worth remembering before walking into the room.</p>
+
+      <div class="cheat-grid">
+        <div class="cheat-cell"><h4>Key numbers</h4><p>500M DAU · 2.5B views/day · ~100K peak starts/sec · ~100 Tbps egress · 5M uploads/day · ~4 PB/day new storage</p></div>
+        <div class="cheat-cell"><h4>Key datastores</h4><p>Object storage (videos) · MySQL/PostgreSQL + Redis (metadata) · Cassandra (comments, history) · Elasticsearch (search) · Kafka (events)</p></div>
+        <div class="cheat-cell"><h4>Upload strategy</h4><p>Chunked, resumable uploads straight to object storage via pre-signed URLs; app servers track state only.</p></div>
+        <div class="cheat-cell"><h4>Transcoding strategy</h4><p>Kafka-triggered DAG: split into segments, encode in parallel per rendition, package HLS/DASH, retry per task.</p></div>
+        <div class="cheat-cell"><h4>Delivery strategy</h4><p>Adaptive bitrate over HTTP segments; multi-tier CDN with origin shield; pre-warm trending videos.</p></div>
+        <div class="cheat-cell"><h4>Video state machine</h4><p>UPLOADING → PROCESSING → READY, or FAILED / REMOVED. Status changes are conditional updates.</p></div>
+        <div class="cheat-cell"><h4>Key tradeoffs</h4><p>Storage cost vs. number of renditions. Start-up speed vs. quality. Exact vs. eventual counts. Pre-warm vs. pull-on-demand.</p></div>
+        <div class="cheat-cell"><h4>Hardest part</h4><p>Delivering enormous bandwidth cheaply and smoothly, while converting every upload into many formats fast.</p></div>
+        <div class="cheat-cell"><h4>Sharding keys</h4><p>Metadata → video_id · Comments → video_id · History → user_id · Kafka → video_id · Objects → video_id + rendition</p></div>
+        <div class="cheat-cell"><h4>Interview time map</h4><p>0–3 min: clarify · 3–7: requirements + estimation · 7–16: HLD + flow · 16–23: data + storage · 23–29: deep dives · 29–30: tradeoffs</p></div>
+      </div>
+
+      <h3>Streaming protocols — at a glance</h3>
+      <table>
+        <tr><th>Approach</th><th>How it works</th><th>Strength</th><th>Best for</th></tr>
+        <tr><td>Progressive download</td><td>One file over plain HTTP</td><td>Trivial to build</td><td>Tiny clips, prototypes</td></tr>
+        <tr><td>HLS</td><td>Segments + .m3u8 manifest, adaptive</td><td>Universal on Apple and most players</td><td>On-demand and live</td></tr>
+        <tr><td>MPEG-DASH</td><td>Segments + .mpd manifest, adaptive</td><td>Open standard, flexible codecs</td><td>Android, web, smart TVs</td></tr>
+        <tr><td>WebRTC</td><td>Peer-style real-time transport</td><td>Sub-second latency</td><td>Calls, interactive live</td></tr>
+        <tr><td>RTMP / SRT ingest</td><td>Persistent stream from encoder</td><td>Low-latency contribution</td><td>Live creator ingest</td></tr>
+      </table>
+    </section>
+
+  </main>
+</div>
+
+<footer>
+  <span>System Design Case Study — Video Streaming System · YouTube / Netflix style</span>
+  <span>Written as a high-level design walkthrough</span>
+</footer>
+
+<script>
+  const links = document.querySelectorAll('nav.toc a');
+  const sections = document.querySelectorAll('section.step');
+  const obs = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const id = entry.target.getAttribute('id');
+        links.forEach(l => l.classList.toggle('active', l.getAttribute('href') === '#' + id));
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  sections.forEach(s => obs.observe(s));
+</script>
+
+</body>
+</html>
