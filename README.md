@@ -22,6 +22,7 @@ This repository is designed to help software engineers **master System Design in
 <sub>👉 <a href="https://sampritakoley.github.io/HLD_System-Design-Solution/RideBookingSystem/">Design Ride Booking System</a></sub><br>
 <sub>👉 <a href="https://sampritakoley.github.io/HLD_System-Design-Solution/VideoStreamingSystem/">Design Video Streaming System</a></sub><br>
 <sub>👉 <a href="https://sampritakoley.github.io/HLD_System-Design-Solution/RateLimiter/">Design Rate Limiter</a></sub><br>
+<sub>👉 <a href="https://sampritakoley.github.io/HLD_System-Design-Solution/VideoConferencingPlatform/">Design Video Conferencing Platform</a></sub><br>
 <sub>👉 <a href="https://sampritakoley.github.io/HLD_System-Design-Solution/WhatsappSystemDesign/">Design WhatsApp / Messaging App</a></sub>
 ---
 
