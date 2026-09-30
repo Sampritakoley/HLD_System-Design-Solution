@@ -18,6 +18,7 @@ This repository is designed to help software engineers **master System Design in
 <sub>👉 <a href="https://sampritakoley.github.io/HLD_System-Design-Solution/FacebookNewsFeed/">Design Facebook News Feed</a></sub><br>
 <sub>👉 <a href="https://sampritakoley.github.io/HLD_System-Design-Solution/BookMyShow/">Design Book My Show</a></sub><br>
 <sub>👉 <a href="https://sampritakoley.github.io/HLD_System-Design-Solution/Spotify/">Design Music Streaming Platform</a></sub><br>
+<sub>👉 <a href="https://sampritakoley.github.io/HLD_System-Design-Solution/RateLimiter/">Design Rate Limiter</a></sub><br>
 <sub>👉 <a href="https://sampritakoley.github.io/HLD_System-Design-Solution/WhatsappSystemDesign/">Design WhatsApp / Messaging App</a></sub>
 ---
 
