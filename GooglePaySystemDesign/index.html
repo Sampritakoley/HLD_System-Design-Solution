@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Designing Google Pay (UPI Payments) — System Design Case Study</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#FAF8F4;--raised:#FFFFFF;--ink:#16181C;--soft:#52524E;--faint:#8A887F;--line:#DEDAD0;--strong:#C7C2B5;--signal:#D85A30;--sig-soft:#FAECE7;--sig-deep:#4A1B0C;--code:#16181C;--mono:'JetBrains Mono',monospace;--sans:'Inter',system-ui,sans-serif;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--paper:#14151A;--raised:#1D1F25;--ink:#ECEAE3;--soft:#B5B3AA;--line:#2E3038;--strong:#43454F;--sig-soft:#3A1E14;--sig-deep:#F5B9A3}}
+:root[data-theme="dark"]{--paper:#14151A;--raised:#1D1F25;--ink:#ECEAE3;--soft:#B5B3AA;--line:#2E3038;--strong:#43454F;--sig-soft:#3A1E14;--sig-deep:#F5B9A3}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased}
+a{color:var(--signal);text-decoration:none}a:hover{text-decoration:underline}
+.badge{position:fixed;top:calc(18px + env(safe-area-inset-top,0px));right:24px;z-index:50;background:var(--signal);padding:8px 16px;border-radius:999px;box-shadow:0 2px 14px rgba(216,90,48,.35);line-height:1.3;display:flex;flex-direction:column}
+.badge b{font-size:12.5px;font-weight:600;color:#fff}
+.badge span{font-family:var(--mono);font-size:10.5px;color:rgba(255,255,255,.75)}
+.badge a{color:rgba(255,255,255,.85)}.badge a:hover{color:#fff}
+@media (max-width:640px){.badge{position:static;margin:14px 32px 0;width:fit-content}}
+header.hero{max-width:1080px;margin:0 auto;padding:64px 32px 48px;border-bottom:1px solid var(--line)}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);display:flex;align-items:center;gap:10px;margin-bottom:20px}
+.eyebrow::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--signal)}
+h1{font-size:44px;font-weight:700;letter-spacing:-.02em;line-height:1.12;max-width:780px}
+h1 em{font-style:normal;color:var(--signal)}
+.sub{margin-top:18px;font-size:18px;color:var(--soft);max-width:640px}
+.meta{display:flex;gap:28px;margin-top:32px;flex-wrap:wrap}
+.meta div{font-family:var(--mono);font-size:12px;color:var(--faint)}
+.meta b{color:var(--ink);font-weight:600;display:block;font-size:14px;margin-top:2px}
+.layout{max-width:1080px;margin:0 auto;display:grid;grid-template-columns:200px 1fr;gap:56px;padding:0 32px}
+nav.toc{position:sticky;top:32px;align-self:start;padding-top:48px;font-family:var(--mono);font-size:12px}
+nav.toc a{display:block;color:var(--faint);padding:6px 0 6px 12px;border-left:2px solid transparent;margin-left:-13px}
+nav.toc a:hover,nav.toc a.active{color:var(--ink);border-left-color:var(--signal);text-decoration:none}
+main{padding:48px 0 80px;min-width:0}
+section.step{padding:40px 0;border-bottom:1px solid var(--line)}
+section.step:first-child{padding-top:0}
+.num{font-family:var(--mono);font-size:13px;color:var(--signal);font-weight:600;margin-bottom:8px;display:block}
+h2{font-size:26px;font-weight:700;letter-spacing:-.01em;margin-bottom:18px}
+h3{font-size:16px;font-weight:600;margin:28px 0 12px}
+p{margin-bottom:14px;max-width:680px}
+p.lead{font-size:17px;color:var(--soft)}
+ul,ol{margin:0 0 16px;padding:0;max-width:680px}
+li{list-style:none;padding-left:20px;position:relative;margin-bottom:8px;font-size:15px}
+li::before{content:'—';position:absolute;left:0;color:var(--faint)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin:20px 0}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin:20px 0}
+.card{background:var(--raised);border:1px solid var(--line);padding:18px 20px}
+.card h4{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);font-weight:600;margin-bottom:10px}
+.card p{font-size:14px;margin:0}.card ul{margin:0}.card li{font-size:13px}
+.metric{border-left:2px solid var(--signal);padding:4px 0 4px 16px}
+.metric .n{font-family:var(--mono);font-size:28px;font-weight:600;display:block;line-height:1.1}
+.metric .l{font-size:12px;color:var(--faint);margin-top:2px}
+.insight{border-left:2px solid;padding:10px 16px;margin:12px 0;font-size:14px;line-height:1.65;max-width:680px}
+.amber{border-color:#B07D2B;background:#FBF5E8;color:#5A3D0A}
+.green{border-color:#3B6D11;background:#EEF7E8;color:#1E3B08}
+pre{font-family:var(--mono);font-size:12.5px;line-height:1.8;background:var(--code);color:#E9E7DF;padding:20px 22px;overflow-x:auto;margin:16px 0;border-radius:2px}
+.hl{color:var(--signal)}.dim{color:#8A887F}
+code.i{font-family:var(--mono);font-size:13px;background:var(--sig-soft);color:var(--sig-deep);padding:1px 6px;border-radius:2px}
+.tw{overflow-x:auto;max-width:760px}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;min-width:520px}
+th{text-align:left;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);font-weight:600;padding:8px 12px;border-bottom:1px solid var(--strong)}
+td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top;color:var(--soft)}
+td:first-child{color:var(--ink);font-weight:500}
+.dive{border:1px solid var(--line);margin:24px 0}
+.dh{background:var(--ink);color:var(--paper);padding:12px 18px;font-family:var(--mono);font-size:13px;font-weight:500;display:flex;gap:10px;align-items:center}
+.dh .tag{background:var(--signal);color:#fff;font-size:10px;padding:2px 7px}
+.db{padding:20px 22px}.db p{font-size:14px}
+.dl{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin:18px 0 6px}
+.fail{color:#C24444}.fix{color:#4C8A1A}
+.arch{background:var(--code);padding:24px;overflow-x:auto;margin:20px 0}.arch pre{background:transparent;padding:0;margin:0}
+.comp{border:1px solid var(--line);margin:16px 0}
+.ci{padding:14px 16px;border-bottom:1px solid var(--line)}.ci:last-child{border:none}
+.cn{font-weight:600;font-size:14px;margin-bottom:4px}.cw{font-size:13px;color:var(--soft);line-height:1.6}
+.q{font-size:13px;padding:9px 14px;background:var(--raised);border:1px solid var(--line);margin:6px 0;color:var(--soft)}
+.q::before{content:"? ";color:var(--faint);font-family:var(--mono)}
+.cheat{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);margin:20px 0}
+.cc{background:var(--raised);padding:16px 18px}
+.cc h4{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--signal);margin-bottom:6px}
+.cc p{font-size:13px;margin:0;color:var(--soft)}
+footer{border-top:1px solid var(--line);padding:40px 32px 60px;max-width:1080px;margin:0 auto;font-family:var(--mono);font-size:12px;color:var(--faint);display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+@media (max-width:840px){.layout{grid-template-columns:1fr;gap:0}nav.toc{position:static;display:flex;overflow-x:auto;gap:4px;padding:16px 0;border-bottom:1px solid var(--line);white-space:nowrap}nav.toc a{border-left:none;border-bottom:2px solid transparent;margin:0;padding:6px 10px}nav.toc a.active{border-bottom-color:var(--signal)}h1{font-size:32px}.grid2,.grid3,.cheat{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="badge"><b>Samprita Koley</b><span><a href="mailto:sampritakoley01@gmail.com">sampritakoley01@gmail.com</a> · <a href="https://www.linkedin.com/in/sampritakoley/" target="_blank" rel="noopener">LinkedIn</a></span></div>
+
+<header class="hero">
+  <div class="eyebrow">System Design Case Study</div>
+  <h1>Designing Google Pay when <em>money must never</em> be lost, doubled or stuck.</h1>
+  <p class="sub">A complete high-level design walkthrough of a UPI-style payments app: requirements, capacity estimation, architecture, data model, and three deep dives into the hardest problems: transaction processing with banks, ledger consistency, and real-time fraud detection.</p>
+  <div class="meta">
+    <div>SCOPE<b>Link · Pay · Receive · Reconcile</b></div>
+    <div>FORMAT<b>8-step HLD walkthrough</b></div>
+    <div>FOCUS<b>Correctness, idempotency &amp; risk</b></div>
+  </div>
+</header>
+
+<div class="layout">
+<nav class="toc" id="toc">
+  <a href="#s1">01 · Problem</a><a href="#s2">02 · Requirements</a><a href="#s3">03 · Estimation</a><a href="#s4">04 · Architecture</a><a href="#s5">05 · Database</a><a href="#s6">06 · Deep Dives</a><a href="#s7">07 · Tradeoffs</a><a href="#s8">08 · Cheat Sheet</a>
+</nav>
+<main>
+
+<section class="step" id="s1">
+  <span class="num">01 / Understanding the problem</span>
+  <h2>What is this system, really?</h2>
+  <p class="lead">A payments app lets users send money to anyone with a phone number, UPI id or QR code, pay merchants, and request money, in seconds, directly between bank accounts. The app itself does not hold most of the money: banks do, and a national switch (NPCI in India) connects them.</p>
+  <p>The core tension: this is a distributed system where every external call can time out, yet the answer to “did the money move?” must always be exactly right. Correctness beats speed; speed still matters a lot.</p>
+  <h3>Core features in scope</h3>
+  <div class="grid2">
+    <div class="card"><h4>Link account</h4><p>Register the user, verify the phone, link bank accounts, set a UPI PIN with the bank.</p></div>
+    <div class="card"><h4>Pay &amp; collect</h4><p>Send to a contact, UPI id or QR; request money; pay merchants and bills.</p></div>
+    <div class="card"><h4>History &amp; status</h4><p>Transaction list, receipts, status tracking, disputes and refunds.</p></div>
+    <div class="card"><h4>Rewards &amp; wallet</h4><p>Cashback, offers and an in-app balance recorded in our own ledger.</p></div>
+  </div>
+  <h3>What makes this hard at scale</h3>
+  <ul>
+    <li><strong>Exactly-once money movement.</strong> Retries and timeouts must never double-debit or lose a payment.</li>
+    <li><strong>Unreliable partners.</strong> Banks and the switch are slow, rate-limited and sometimes down.</li>
+    <li><strong>Unknown outcomes.</strong> A timeout does not tell us whether the debit happened.</li>
+    <li><strong>Fraud and abuse.</strong> Decisions are needed in under 100 ms, inline with the payment.</li>
+    <li><strong>Peak load.</strong> Festivals and sales multiply traffic 5-10× in minutes.</li>
+  </ul>
+</section>
+
+<section class="step" id="s2">
+  <span class="num">02 / Requirements</span>
+  <h2>Functional vs. non-functional requirements</h2>
+  <p class="lead">Non-functional requirements drive the architecture, so they come first.</p>
+  <div class="grid2">
+    <div class="card"><h4>Functional</h4><ul>
+      <li>Onboard and link bank accounts</li>
+      <li>Send money by phone, UPI id, QR</li>
+      <li>Collect requests and approvals</li>
+      <li>Check balance and see history</li>
+      <li>Payment status, receipts, disputes</li>
+      <li>Merchant payments and bill pay</li>
+      <li>Refunds and reversals</li>
+      <li>Notifications for every event</li>
+    </ul></div>
+    <div class="card"><h4>Non-functional</h4><ul>
+      <li>50M DAU, ~100M txns/day, ~10K TPS peak</li>
+      <li>Payment completes in &lt; 3 s (p95)</li>
+      <li>99.99% availability for payments</li>
+      <li>Strong consistency and exactly-once effect</li>
+      <li>No lost or duplicated money, ever</li>
+      <li>Fraud decision &lt; 100 ms inline</li>
+      <li>Full audit trail, encryption, compliance</li>
+      <li>Degrade gracefully when a bank is down</li>
+    </ul></div>
+  </div>
+  <h3>Clarifying questions</h3>
+  <div class="q">Do we hold money (wallet) or only move it between bank accounts via UPI?</div>
+  <div class="q">Which parts are ours versus the bank and switch: PIN entry, debit, credit, settlement?</div>
+  <div class="q">What is the expected behavior when the outcome is unknown after a timeout?</div>
+  <div class="q">Do we need international payments, multiple currencies, or cards?</div>
+  <div class="q">What are the fraud, regulatory and data residency requirements?</div>
+</section>
+
+<section class="step" id="s3">
+  <span class="num">03 / Estimation</span>
+  <h2>Back-of-envelope math</h2>
+  <p class="lead">Order-of-magnitude accuracy, with every assumption stated.</p>
+  <div class="grid3">
+    <div class="metric"><span class="n">~1.2K/s</span><span class="l">Avg transactions (10K/s peak)</span></div>
+    <div class="metric"><span class="n">~100M</span><span class="l">Transactions per day</span></div>
+    <div class="metric"><span class="n">~40 TB</span><span class="l">Ledger growth per year</span></div>
+  </div>
+  <h3>Assumptions</h3>
+<pre>DAU                    = 50M; ~2 payments per active user
+Transactions per day   = 100M (avg ~1.2K/sec)
+Peak factor            = ~8x during festivals → ~10K TPS
+Transaction record     = ~1 KB; ledger entries = 2 per transaction (debit + credit)
+Balance and history reads = ~10x payment volume
+Fraud checks           = 1 per transaction, plus on login and linking</pre>
+  <h3>QPS</h3>
+<pre>Payments:       100M / 86,400 = ~1.2K/sec avg → <span class="hl">~10K/sec peak</span>
+Status checks:  polling and push, ~3-5x payments → ~30-50K/sec
+Reads (history, balance): ~10x → <span class="hl">~100K/sec peak</span>, mostly cacheable
+Fraud scoring:  ~10K/sec inline, each within ~50-100 ms
+
+<span class="dim">Write volume is modest, but every write must be durable and
+correct. Reads are heavy and cacheable.</span></pre>
+  <h3>Storage</h3>
+<pre>Transactions: 100M/day × 1 KB = 100 GB/day ≈ <span class="hl">~36 TB/year</span>
+Ledger entries: 200M/day × ~200 B = ~40 GB/day ≈ <span class="hl">~15 TB/year</span>
+User and account data: 300M users × ~2 KB = ~600 GB
+Audit and events: stream to Kafka → data lake, retained for years (compliance)
+
+<span class="dim">Hot data is recent transactions; archive old ones to cheaper storage
+but keep them queryable for disputes.</span></pre>
+  <h3>Latency budget</h3>
+<pre>Total target ~3 s: app + our services ~300 ms, fraud ~100 ms,
+switch + issuing bank + beneficiary bank ~1-2 s.
+<span class="dim">Most latency is outside our control, so we make our part fast and
+handle the slow or unknown cases explicitly.</span></pre>
+</section>
+
+<section class="step" id="s4">
+  <span class="num">04 / High-level design</span>
+  <h2>Architecture</h2>
+  <p class="lead">Every box exists because of a number from Step 3.</p>
+  <div class="arch"><pre>
+ MOBILE APP (UPI PIN entered via bank-secured library)
+     │  HTTPS (TLS) + device binding
+ [ API Gateway / LB ]  auth · rate limit · idempotency key check
+     │
+ ├─► [ User / Account Service ] ─► [ Users DB ]
+ ├─► [ Payment Service ] ─► [ Transactions DB ]    ◄─ state machine
+ │         │
+ │         ├─► [ Risk / Fraud Service ] ─► [ Feature store · ML model ]
+ │         ├─► [ Ledger Service ] ─► [ Ledger DB ] (double-entry)
+ │         └─► [ PSP / Bank Adapter ] ─► NPCI UPI Switch ─► Banks
+ │                    ▲ callbacks / webhooks
+ │
+ ├─► [ Status Service ] (push + poll) ─► [ Redis cache ]
+ └─► [ Kafka ] ─► Notifications · Reconciliation · Analytics · Audit
+
+<span class="dim">Payments are a state machine persisted before every external call</span></pre></div>
+  <h3>Component rationale</h3>
+  <div class="comp">
+    <div class="ci"><div class="cn">API gateway</div><div class="cw">Authenticates the device and user, rate limits, and rejects duplicate requests by idempotency key before they reach core services.</div></div>
+    <div class="ci"><div class="cn">Payment service</div><div class="cw">Owns the transaction state machine. Persists state before and after each external step so any crash can resume or compensate.</div></div>
+    <div class="ci"><div class="cn">Risk / fraud service</div><div class="cw">Scores each payment in real time with rules and ML, and can allow, challenge or block, within a strict latency budget.</div></div>
+    <div class="ci"><div class="cn">Ledger service</div><div class="cw">Immutable double-entry record of every money movement in our books (wallet, rewards, merchant settlement). The source of financial truth.</div></div>
+    <div class="ci"><div class="cn">PSP / bank adapter</div><div class="cw">Speaks the UPI protocol to the switch and banks, with timeouts, retries, circuit breakers and per-bank rate limits.</div></div>
+    <div class="ci"><div class="cn">Status service</div><div class="cw">Shows live status to users and merchants, via push and cached polling, so the payment path is not hit by status checks.</div></div>
+    <div class="ci"><div class="cn">Kafka</div><div class="cw">Streams events to notifications, reconciliation, analytics and audit without slowing the payment path.</div></div>
+  </div>
+  <h3>End-to-end flow — "Aisha pays Ben ₹500"</h3>
+  <ol>
+    <li>Aisha enters the amount and Ben’s UPI id; the app sends the request with a unique idempotency key.</li>
+    <li>Payment Service creates the transaction as <code class="i">INITIATED</code> in the DB and calls Risk, which returns allow, step-up or block.</li>
+    <li>On allow, state becomes <code class="i">PENDING</code>; Aisha enters her UPI PIN, which goes securely to her bank and not through our servers.</li>
+    <li>The adapter sends the pay request to the switch; the switch asks Aisha’s bank to debit and Ben’s bank to credit.</li>
+    <li>Callbacks report success or failure; the state moves to <code class="i">SUCCESS</code> or <code class="i">FAILED</code> with a conditional update.</li>
+    <li>Any wallet or reward effect is recorded in the Ledger as balanced debit and credit entries.</li>
+    <li>If no callback arrives, the state is <code class="i">UNKNOWN</code>: a status-enquiry job asks the switch until a final answer is known.</li>
+    <li>Kafka events send notifications to both users and feed reconciliation with bank settlement files.</li>
+  </ol>
+</section>
+
+<section class="step" id="s5">
+  <span class="num">05 / Database design</span>
+  <h2>Storage layer</h2>
+  <p class="lead">Different data, different access patterns, different stores. Money data lives in ACID databases.</p>
+  <div class="tw"><table>
+    <tr><th>Data</th><th>Store</th><th>Why</th></tr>
+    <tr><td>Transactions</td><td>PostgreSQL / Spanner (sharded)</td><td>ACID, state machine, unique idempotency key</td></tr>
+    <tr><td>Ledger entries</td><td>PostgreSQL / Spanner (append-only)</td><td>Immutable double-entry, strong consistency</td></tr>
+    <tr><td>Users, linked accounts, devices</td><td>PostgreSQL</td><td>Relational, security-critical</td></tr>
+    <tr><td>Status, sessions, idempotency cache</td><td>Redis</td><td>Fast reads, TTL</td></tr>
+    <tr><td>Risk features</td><td>Feature store (Redis / Bigtable)</td><td>Low-latency lookups for scoring</td></tr>
+    <tr><td>Events, audit, history archive</td><td>Kafka → data lake</td><td>Analytics, reconciliation, compliance</td></tr>
+  </table></div>
+  <h3>Core tables and keys</h3>
+<pre>-- Transactions
+CREATE TABLE transactions (
+  txn_id        UUID PRIMARY KEY,
+  idem_key      TEXT UNIQUE NOT NULL,   -- one effect per client request
+  payer_vpa     TEXT, payee_vpa TEXT,
+  amount_paise  BIGINT NOT NULL CHECK (amount_paise &gt; 0),
+  status        TEXT NOT NULL,  -- INITIATED | PENDING | SUCCESS | FAILED | UNKNOWN | REVERSED
+  switch_ref    TEXT,           -- reference from the UPI switch
+  created_at    TIMESTAMP DEFAULT now(), updated_at TIMESTAMP
+);
+
+-- Double-entry ledger (append-only, never updated)
+CREATE TABLE ledger_entries (
+  entry_id    UUID PRIMARY KEY,
+  txn_id      UUID NOT NULL,
+  account_id  BIGINT NOT NULL,
+  direction   CHAR(1) NOT NULL,  -- D or C
+  amount_paise BIGINT NOT NULL,
+  created_at  TIMESTAMP DEFAULT now()
+);  -- invariant: SUM(debits) = SUM(credits) per txn_id</pre>
+  <h3>Sharding strategy</h3>
+  <ul>
+    <li><strong>Transactions</strong> — shard by <code class="i">payer user_id</code> so a user’s history is one shard; the idempotency key is unique per shard (include user in the key).</li>
+    <li><strong>Ledger</strong> — shard by <code class="i">account_id</code>; keep both legs of a transfer in one transaction or tie them with a saga.</li>
+    <li><strong>History</strong> — recent in the primary DB, older archived by month, still retrievable for disputes.</li>
+    <li><strong>Replicas</strong> — synchronous replication within a region for durability; async cross-region for disaster recovery.</li>
+  </ul>
+</section>
+
+<section class="step" id="s6">
+  <span class="num">06 / Deep dives</span>
+  <h2>Deep dive on 3 critical components</h2>
+  <p class="lead">For each: the problem, the naive solution, why it fails, and the real solution. Volunteer these before the interviewer asks.</p>
+
+  <div class="dive"><div class="dh"><span class="tag">01</span> Transaction processing — exactly-once payments over unreliable banks</div><div class="db">
+    <p><strong>The problem:</strong> A payment crosses our service, the switch and two banks. Any call may time out, return twice, or arrive late. The result must be exactly one debit and one credit, or none.</p>
+    <div class="dl fail">Naive solution — call the bank and trust the response</div>
+<pre>resp = bank.debit(payer, amount)     # timeout? retry?
+if resp.ok: bank.credit(payee, amount)</pre>
+    <p><strong>Why it fails:</strong> A timeout does not mean failure: the bank may have debited. Retrying then double-charges; not retrying may leave the user debited with nothing delivered. A crash between debit and credit strands money.</p>
+    <div class="dl fix">Real solution — persisted state machine, idempotency, enquiry and reversal</div>
+<pre>1. Idempotency key from the client for every payment. Enforced by a
+   UNIQUE constraint; a retry returns the existing transaction.
+
+2. Persist before acting: write the txn as INITIATED/PENDING, then call
+   out. After a crash, a recovery job resumes from the last state.
+
+3. Pass our txn_id to the switch as the reference, so a repeated
+   request is recognized as the same payment, not a new one.
+
+4. Timeouts → UNKNOWN, never assume failure. A status-enquiry job
+   polls the switch (with backoff) until a final SUCCESS or FAILED.
+
+5. Conditional state transitions:
+     UPDATE transactions SET status='SUCCESS'
+     WHERE txn_id=? AND status IN ('PENDING','UNKNOWN')
+   Late or duplicate callbacks affect 0 rows and are ignored.
+
+6. Debit succeeded but credit failed → automatic reversal (refund)
+   within the time limit set by the scheme; track it as REVERSED.
+
+7. Daily reconciliation: compare our records with the switch and bank
+   settlement files; investigate mismatches in a dedicated queue.
+
+<span class="dim">The user sees "Processing" for unknown cases. Never show a
+failure that might later turn out to be a success.</span></pre>
+    <div class="insight green">Treat every external call as “might have happened.” Persist intent first, use idempotent references, and resolve uncertainty by asking, never by guessing.</div>
+  </div></div>
+
+  <div class="dive"><div class="dh"><span class="tag">02</span> Ledger &amp; consistency — balances that always add up</div><div class="db">
+    <p><strong>The problem:</strong> Wallet balances, rewards and merchant settlements must be exact. Concurrent payments, retries and failures must not create or destroy money.</p>
+    <div class="dl fail">Naive solution — a balance column updated in place</div>
+<pre>bal = SELECT balance FROM wallets WHERE id=?;
+UPDATE wallets SET balance = bal - 500 WHERE id=?;   -- read-modify-write</pre>
+    <p><strong>Why it fails:</strong> Two concurrent debits both read 800 and write 300, losing a deduction and allowing an overdraft. A bug or crash can change the balance with no record of why, so there is nothing to audit or repair.</p>
+    <div class="dl fix">Real solution — append-only double-entry ledger with atomic transactions</div>
+<pre>1. Every movement is two entries: a debit and a credit of equal amount,
+   inserted in one DB transaction. The ledger is append-only: fix
+   mistakes with a new compensating entry, never an UPDATE or DELETE.
+
+2. Balance = sum of entries (or a maintained balance row updated in the
+   same transaction):
+     UPDATE accounts SET balance = balance - :amt
+     WHERE id=? AND balance &gt;= :amt     -- 0 rows → insufficient funds
+
+3. Idempotent writes: unique key (txn_id, account_id, direction) so a
+   replay inserts nothing new.
+
+4. Cross-shard transfers: use a saga (debit leg, then credit leg with
+   retries and a compensating reversal) or a transactional database
+   (Spanner-style) for atomic cross-shard commits.
+
+5. Hot accounts (large merchants): split into sub-accounts and
+   aggregate, or batch credits per second instead of one row update
+   per payment.
+
+6. Invariants checked continuously: per-txn debits = credits, and total
+   system money = known external balances. Alerts on any drift.
+
+<span class="dim">Cache balances for display only. Decisions use the
+database, never the cache.</span></pre>
+    <div class="insight amber">Never store “current state” as the only truth. Store the immutable history of changes; balances are derived, and every number can be explained and audited.</div>
+  </div></div>
+
+  <div class="dive"><div class="dh"><span class="tag">03</span> Fraud &amp; risk — block bad payments in under 100 ms</div><div class="db">
+    <p><strong>The problem:</strong> Scams, stolen devices and money-mule rings run through the same rails as honest payments. We must decide in real time without annoying good users.</p>
+    <div class="dl fail">Naive solution — review transactions afterwards in batch</div>
+<pre>nightly job: SELECT suspicious patterns → freeze accounts</pre>
+    <p><strong>Why it fails:</strong> Money is gone within seconds and cannot be clawed back easily. A daily batch finds fraud long after the loss, while blunt blocking rules reject too many legitimate payments.</p>
+    <div class="dl fix">Real solution — inline scoring with fast features, plus an async feedback loop</div>
+<pre>1. Inline Risk call before the debit, with a strict timeout (~100 ms).
+   If risk is unavailable, apply a safe default (allow small amounts,
+   challenge or block large ones).
+
+2. Layers: hard rules first (blocklists, velocity limits like "5
+   payments to new payees in 10 minutes", amount caps), then an ML
+   score from features.
+
+3. Features served from a low-latency feature store:
+     device and SIM binding, account age, payee age, typical amounts,
+     time of day, geo change, recent failed PIN attempts, graph links.
+   Streaming jobs (Kafka) keep counters fresh in near real time.
+
+4. Outcomes: ALLOW, CHALLENGE (extra confirmation, cooling period,
+   warning for scam patterns), or BLOCK. Show clear messages.
+
+5. Collect-request scams: warn when approving a "collect" request,
+   since paying a stranger's request is a common fraud pattern.
+
+6. Feedback loop: confirmed fraud and disputes retrain models; rules
+   are tuned with shadow mode (log, don't act) before enforcing.
+
+<span class="dim">Cost of a false block is a frustrated user; cost of a missed
+fraud is real money. Tune per amount and risk segment.</span></pre>
+    <div class="insight green">Fraud control belongs in the payment path, not after it. Keep the fast path cheap (rules plus precomputed features) and run heavier analysis asynchronously.</div>
+  </div></div>
+</section>
+
+<section class="step" id="s7">
+  <span class="num">07 / Tradeoffs &amp; alternatives</span>
+  <h2>What we did NOT choose and why</h2>
+  <h3>Rejected alternatives</h3>
+  <div class="tw"><table>
+    <tr><th>Alternative</th><th>Why rejected</th></tr>
+    <tr><td>Assume timeout means failure</td><td>Causes double charges or stranded money; use UNKNOWN plus enquiry.</td></tr>
+    <tr><td>Mutable balance with no history</td><td>Lost updates, no audit trail, cannot reconcile.</td></tr>
+    <tr><td>Distributed 2PC across banks</td><td>Banks cannot participate; use saga with reversal and reconciliation.</td></tr>
+    <tr><td>NoSQL with eventual consistency for money</td><td>Risk of lost or duplicated updates; money needs ACID.</td></tr>
+    <tr><td>Fraud checks only in batch</td><td>Too late to stop irreversible transfers.</td></tr>
+    <tr><td>Route PIN through our servers</td><td>Security and compliance risk; the PIN goes only to the issuing bank.</td></tr>
+  </table></div>
+  <h3>What breaks at 10× scale and how we fix it</h3>
+  <div class="dive" style="margin-top:16px"><div class="db">
+    <div class="dl fail">Problem — A bank or the switch slows down or fails</div>
+    <p>Timeouts rise, pending payments pile up, and retries could make it worse.</p>
+    <div class="dl fix">Fix</div>
+    <p>Per-bank circuit breakers and rate limits, retry with backoff and jitter, queued status enquiries, clear “bank is slow, try later” messaging, and never retry a debit without the same reference.</p>
+  </div></div>
+  <div class="dive"><div class="db">
+    <div class="dl fail">Problem — Festival traffic spike</div>
+    <p>Payment volume jumps 8× in minutes, especially at the same few merchants.</p>
+    <div class="dl fix">Fix</div>
+    <p>Autoscale stateless services, shard DBs ahead of known events, shed non-critical work (rewards, analytics) first, cache heavy reads, and batch credits to hot merchant accounts.</p>
+  </div></div>
+  <div class="dive"><div class="db">
+    <div class="dl fail">Problem — Duplicate callbacks and out-of-order events</div>
+    <p>The same success arrives twice, or a failure arrives after a success.</p>
+    <div class="dl fix">Fix</div>
+    <p>Conditional state transitions on a one-way state machine, idempotent handlers keyed by switch reference, and versioned events so stale ones are ignored.</p>
+  </div></div>
+  <div class="dive"><div class="db">
+    <div class="dl fail">Problem — Regional outage or database failover</div>
+    <p>A data center loss during in-flight payments could lose acknowledged writes.</p>
+    <div class="dl fix">Fix</div>
+    <p>Synchronous replication for money data inside a region, tested failover, active-active stateless tiers, recovery jobs that resume PENDING and UNKNOWN transactions, and reconciliation against bank files as the final safety net.</p>
+  </div></div>
+</section>
+
+<section class="step" id="s8">
+  <span class="num">08 / Summary</span>
+  <h2>Cheat sheet</h2>
+  <p class="lead">What to remember before walking into the room.</p>
+  <div class="cheat">
+    <div class="cc"><h4>Key numbers</h4><p>50M DAU · 100M txns/day · ~1.2K TPS avg, ~10K peak · &lt; 3 s payment · &lt; 100 ms fraud check</p></div>
+    <div class="cc"><h4>Key datastores</h4><p>PostgreSQL / Spanner (transactions, ledger) · Redis (status, cache) · Feature store · Kafka · data lake</p></div>
+    <div class="cc"><h4>Payment strategy</h4><p>Idempotency key, persist-then-call, UNKNOWN state, status enquiry, auto reversal, daily reconciliation.</p></div>
+    <div class="cc"><h4>Ledger strategy</h4><p>Append-only double-entry, atomic conditional updates, saga for cross-shard, invariant monitoring.</p></div>
+    <div class="cc"><h4>Transaction state machine</h4><p>INITIATED → PENDING → SUCCESS / FAILED, with UNKNOWN → resolved, and REVERSED after refunds.</p></div>
+    <div class="cc"><h4>Key tradeoffs</h4><p>Correctness vs. latency. Block fraud vs. user friction. Strong consistency vs. availability under partner outages.</p></div>
+    <div class="cc"><h4>Hardest part</h4><p>Knowing exactly what happened to money after a timeout from a system we do not control.</p></div>
+    <div class="cc"><h4>Patterns</h4><p>Idempotency · saga · state machine · double-entry ledger · outbox · circuit breaker · reconciliation</p></div>
+    <div class="cc"><h4>Sharding keys</h4><p>Transactions → payer user_id · Ledger → account_id · Kafka → txn_id · Cache → user_id</p></div>
+    <div class="cc"><h4>Interview time map</h4><p>0–3: clarify · 3–7: requirements + estimation · 7–16: HLD + flow · 16–23: data model · 23–29: deep dives · 29–30: tradeoffs</p></div>
+  </div>
+  <h3>Consistency choices — at a glance</h3>
+  <div class="tw"><table>
+    <tr><th>Data</th><th>Consistency</th><th>Reason</th></tr>
+    <tr><td>Transactions, ledger</td><td>Strong, ACID</td><td>Money and legal records</td></tr>
+    <tr><td>Idempotency keys</td><td>Strong (unique constraint)</td><td>Prevents duplicate effects</td></tr>
+    <tr><td>Balance shown in app</td><td>Eventual (cache)</td><td>Display only; decisions use the DB</td></tr>
+    <tr><td>History, notifications, analytics</td><td>Eventual</td><td>Derived from events</td></tr>
+  </table></div>
+</section>
+
+</main>
+</div>
+
+<footer><span>System Design Case Study — Payments App · Google Pay / PhonePe / Paytm style</span><span>Written as a high-level design walkthrough</span></footer>
+
+<script>
+const links=document.querySelectorAll('nav.toc a');
+const obs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){const id=e.target.id;links.forEach(l=>l.classList.toggle('active',l.getAttribute('href')==='#'+id))}})},{rootMargin:'-20% 0px -70% 0px'});
+document.querySelectorAll('section.step').forEach(s=>obs.observe(s));
+</script>
+</body>
+</html>
