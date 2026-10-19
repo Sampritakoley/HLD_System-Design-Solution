@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Designing LeetCode (Online Judge) — System Design Case Study</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#FAF8F4;--raised:#FFFFFF;--ink:#16181C;--soft:#52524E;--faint:#8A887F;--line:#DEDAD0;--strong:#C7C2B5;--signal:#D85A30;--sig-soft:#FAECE7;--sig-deep:#4A1B0C;--code:#16181C;--mono:'JetBrains Mono',monospace;--sans:'Inter',system-ui,sans-serif;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--paper:#14151A;--raised:#1D1F25;--ink:#ECEAE3;--soft:#B5B3AA;--line:#2E3038;--strong:#43454F;--sig-soft:#3A1E14;--sig-deep:#F5B9A3}}
+:root[data-theme="dark"]{--paper:#14151A;--raised:#1D1F25;--ink:#ECEAE3;--soft:#B5B3AA;--line:#2E3038;--strong:#43454F;--sig-soft:#3A1E14;--sig-deep:#F5B9A3}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased}
+a{color:var(--signal);text-decoration:none}a:hover{text-decoration:underline}
+.badge{position:fixed;top:calc(18px + env(safe-area-inset-top,0px));right:24px;z-index:50;background:var(--signal);padding:8px 16px;border-radius:999px;box-shadow:0 2px 14px rgba(216,90,48,.35);line-height:1.3;display:flex;flex-direction:column}
+.badge b{font-size:12.5px;font-weight:600;color:#fff}
+.badge span{font-family:var(--mono);font-size:10.5px;color:rgba(255,255,255,.75)}
+.badge a{color:rgba(255,255,255,.85)}.badge a:hover{color:#fff}
+@media (max-width:640px){.badge{position:static;margin:14px 32px 0;width:fit-content}}
+header.hero{max-width:1080px;margin:0 auto;padding:64px 32px 48px;border-bottom:1px solid var(--line)}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);display:flex;align-items:center;gap:10px;margin-bottom:20px}
+.eyebrow::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--signal)}
+h1{font-size:44px;font-weight:700;letter-spacing:-.02em;line-height:1.12;max-width:780px}
+h1 em{font-style:normal;color:var(--signal)}
+.sub{margin-top:18px;font-size:18px;color:var(--soft);max-width:640px}
+.meta{display:flex;gap:28px;margin-top:32px;flex-wrap:wrap}
+.meta div{font-family:var(--mono);font-size:12px;color:var(--faint)}
+.meta b{color:var(--ink);font-weight:600;display:block;font-size:14px;margin-top:2px}
+.layout{max-width:1080px;margin:0 auto;display:grid;grid-template-columns:200px 1fr;gap:56px;padding:0 32px}
+nav.toc{position:sticky;top:32px;align-self:start;padding-top:48px;font-family:var(--mono);font-size:12px}
+nav.toc a{display:block;color:var(--faint);padding:6px 0 6px 12px;border-left:2px solid transparent;margin-left:-13px}
+nav.toc a:hover,nav.toc a.active{color:var(--ink);border-left-color:var(--signal);text-decoration:none}
+main{padding:48px 0 80px;min-width:0}
+section.step{padding:40px 0;border-bottom:1px solid var(--line)}
+section.step:first-child{padding-top:0}
+.num{font-family:var(--mono);font-size:13px;color:var(--signal);font-weight:600;margin-bottom:8px;display:block}
+h2{font-size:26px;font-weight:700;letter-spacing:-.01em;margin-bottom:18px}
+h3{font-size:16px;font-weight:600;margin:28px 0 12px}
+p{margin-bottom:14px;max-width:680px}
+p.lead{font-size:17px;color:var(--soft)}
+ul,ol{margin:0 0 16px;padding:0;max-width:680px}
+li{list-style:none;padding-left:20px;position:relative;margin-bottom:8px;font-size:15px}
+li::before{content:'—';position:absolute;left:0;color:var(--faint)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin:20px 0}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin:20px 0}
+.card{background:var(--raised);border:1px solid var(--line);padding:18px 20px}
+.card h4{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);font-weight:600;margin-bottom:10px}
+.card p{font-size:14px;margin:0}.card ul{margin:0}.card li{font-size:13px}
+.metric{border-left:2px solid var(--signal);padding:4px 0 4px 16px}
+.metric .n{font-family:var(--mono);font-size:28px;font-weight:600;display:block;line-height:1.1}
+.metric .l{font-size:12px;color:var(--faint);margin-top:2px}
+.insight{border-left:2px solid;padding:10px 16px;margin:12px 0;font-size:14px;line-height:1.65;max-width:680px}
+.amber{border-color:#B07D2B;background:#FBF5E8;color:#5A3D0A}
+.green{border-color:#3B6D11;background:#EEF7E8;color:#1E3B08}
+pre{font-family:var(--mono);font-size:12.5px;line-height:1.8;background:var(--code);color:#E9E7DF;padding:20px 22px;overflow-x:auto;margin:16px 0;border-radius:2px}
+.hl{color:var(--signal)}.dim{color:#8A887F}
+code.i{font-family:var(--mono);font-size:13px;background:var(--sig-soft);color:var(--sig-deep);padding:1px 6px;border-radius:2px}
+.tw{overflow-x:auto;max-width:760px}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;min-width:520px}
+th{text-align:left;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);font-weight:600;padding:8px 12px;border-bottom:1px solid var(--strong)}
+td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top;color:var(--soft)}
+td:first-child{color:var(--ink);font-weight:500}
+.dive{border:1px solid var(--line);margin:24px 0}
+.dh{background:var(--ink);color:var(--paper);padding:12px 18px;font-family:var(--mono);font-size:13px;font-weight:500;display:flex;gap:10px;align-items:center}
+.dh .tag{background:var(--signal);color:#fff;font-size:10px;padding:2px 7px}
+.db{padding:20px 22px}.db p{font-size:14px}
+.dl{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin:18px 0 6px}
+.fail{color:#C24444}.fix{color:#4C8A1A}
+.arch{background:var(--code);padding:24px;overflow-x:auto;margin:20px 0}.arch pre{background:transparent;padding:0;margin:0}
+.comp{border:1px solid var(--line);margin:16px 0}
+.ci{padding:14px 16px;border-bottom:1px solid var(--line)}.ci:last-child{border:none}
+.cn{font-weight:600;font-size:14px;margin-bottom:4px}.cw{font-size:13px;color:var(--soft);line-height:1.6}
+.q{font-size:13px;padding:9px 14px;background:var(--raised);border:1px solid var(--line);margin:6px 0;color:var(--soft)}
+.q::before{content:"? ";color:var(--faint);font-family:var(--mono)}
+.cheat{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);margin:20px 0}
+.cc{background:var(--raised);padding:16px 18px}
+.cc h4{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--signal);margin-bottom:6px}
+.cc p{font-size:13px;margin:0;color:var(--soft)}
+footer{border-top:1px solid var(--line);padding:40px 32px 60px;max-width:1080px;margin:0 auto;font-family:var(--mono);font-size:12px;color:var(--faint);display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+@media (max-width:840px){.layout{grid-template-columns:1fr;gap:0}nav.toc{position:static;display:flex;overflow-x:auto;gap:4px;padding:16px 0;border-bottom:1px solid var(--line);white-space:nowrap}nav.toc a{border-left:none;border-bottom:2px solid transparent;margin:0;padding:6px 10px}nav.toc a.active{border-bottom-color:var(--signal)}h1{font-size:32px}.grid2,.grid3,.cheat{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="badge"><b>Samprita Koley</b><span><a href="mailto:sampritakoley01@gmail.com">sampritakoley01@gmail.com</a> · <a href="https://www.linkedin.com/in/sampritakoley/" target="_blank" rel="noopener">LinkedIn</a></span></div>
+
+<header class="hero">
+  <div class="eyebrow">System Design Case Study</div>
+  <h1>Designing LeetCode when <em>100,000 people</em> submit code in the same contest.</h1>
+  <p class="sub">A complete high-level design walkthrough of an online judge: requirements, capacity estimation, architecture, data model, and three deep dives into the hardest problems: safe code execution, the submission queue, and the live contest leaderboard.</p>
+  <div class="meta">
+    <div>SCOPE<b>Problems · Submit · Judge · Contest</b></div>
+    <div>FORMAT<b>8-step HLD walkthrough</b></div>
+    <div>FOCUS<b>Sandboxing &amp; bursty workloads</b></div>
+  </div>
+</header>
+
+<div class="layout">
+<nav class="toc" id="toc">
+  <a href="#s1">01 · Problem</a><a href="#s2">02 · Requirements</a><a href="#s3">03 · Estimation</a><a href="#s4">04 · Architecture</a><a href="#s5">05 · Database</a><a href="#s6">06 · Deep Dives</a><a href="#s7">07 · Tradeoffs</a><a href="#s8">08 · Cheat Sheet</a>
+</nav>
+<main>
+
+<section class="step" id="s1">
+  <span class="num">01 / Understanding the problem</span>
+  <h2>What is this system, really?</h2>
+  <p class="lead">An online judge lets users read coding problems, write solutions in many languages, run them against hidden test cases, and get a verdict in seconds. Contests add a time limit and a live ranking.</p>
+  <p>The core tension: we run untrusted code from strangers, at scale, in bursts. Everything about the design is shaped by safety first, then by throughput during contest spikes.</p>
+  <h3>Core features in scope</h3>
+  <div class="grid2">
+    <div class="card"><h4>Problems</h4><p>Browse, search and filter problems by tag and difficulty; read statements and examples.</p></div>
+    <div class="card"><h4>Run &amp; submit</h4><p>Run against sample tests, or submit against hidden tests and receive a verdict.</p></div>
+    <div class="card"><h4>Contests</h4><p>Timed events with a live leaderboard, penalties and ratings.</p></div>
+    <div class="card"><h4>Profiles</h4><p>Submission history, solved count, streaks, discussion and editorials.</p></div>
+  </div>
+  <h3>What makes this hard at scale</h3>
+  <ul>
+    <li><strong>Untrusted code.</strong> Users can submit infinite loops, fork bombs, file or network abuse.</li>
+    <li><strong>Bursty load.</strong> Contest start and end create sharp spikes in submissions and page views.</li>
+    <li><strong>Fair, reproducible judging.</strong> The same code must get the same verdict with consistent time and memory limits.</li>
+    <li><strong>Heavy compute.</strong> Each submission can use several seconds of CPU across many test cases.</li>
+    <li><strong>Live ranking.</strong> Leaderboards must update within seconds for tens of thousands of viewers.</li>
+  </ul>
+</section>
+
+<section class="step" id="s2">
+  <span class="num">02 / Requirements</span>
+  <h2>Functional vs. non-functional requirements</h2>
+  <p class="lead">Non-functional requirements drive the architecture, so they come first.</p>
+  <div class="grid2">
+    <div class="card"><h4>Functional</h4><ul>
+      <li>List and view problems with tags and difficulty</li>
+      <li>Code editor with multiple languages</li>
+      <li>Run on samples, submit on hidden tests</li>
+      <li>Verdicts: Accepted, Wrong Answer, TLE, MLE, RE, CE</li>
+      <li>Submission history and stats</li>
+      <li>Contests with live leaderboard and penalties</li>
+      <li>Discussion, editorials, bookmarks</li>
+      <li>Admin tools to add problems and test cases</li>
+    </ul></div>
+    <div class="card"><h4>Non-functional</h4><ul>
+      <li>1M DAU, 5M submissions/day, ~3K/s contest peak</li>
+      <li>Verdict in &lt; 5 s for typical submissions (p95)</li>
+      <li>Strong isolation of untrusted code</li>
+      <li>99.9% availability; contests must not break</li>
+      <li>No lost submissions (durable)</li>
+      <li>Deterministic, fair resource limits</li>
+      <li>Leaderboard lag &lt; 5 seconds</li>
+      <li>Scales workers horizontally on demand</li>
+    </ul></div>
+  </div>
+  <h3>Clarifying questions</h3>
+  <div class="q">Is this practice only, or do we also host live contests with rankings?</div>
+  <div class="q">Which languages are supported, and are the time limits scaled per language?</div>
+  <div class="q">Do we need special judges (custom checkers) or only exact-output matching?</div>
+  <div class="q">What happens on a flaky TLE: re-run, or accept the verdict?</div>
+  <div class="q">Do we need plagiarism detection and anti-cheating in scope?</div>
+</section>
+
+<section class="step" id="s3">
+  <span class="num">03 / Estimation</span>
+  <h2>Back-of-envelope math</h2>
+  <p class="lead">Order-of-magnitude accuracy, with every assumption stated.</p>
+  <div class="grid3">
+    <div class="metric"><span class="n">~60/s</span><span class="l">Avg submissions (3K/s peak)</span></div>
+    <div class="metric"><span class="n">~9K</span><span class="l">Concurrent sandboxes at peak</span></div>
+    <div class="metric"><span class="n">~100K</span><span class="l">Contest participants</span></div>
+  </div>
+  <h3>Assumptions</h3>
+<pre>DAU                    = 1M; ~5 submissions per active user
+Submissions per day    = 5M (avg ~60/sec)
+Contest peak           = 100K users, ~3K submissions/sec at spikes
+Judge time per run     = ~3 seconds (compile + run on tests)
+Source code size       = ~5 KB
+Problems               = ~3,000, each with ~50 MB of test data</pre>
+  <h3>Compute</h3>
+<pre>Concurrent sandboxes at peak = 3K/sec × 3 s = <span class="hl">~9K at once</span>
+Per 16-core worker running ~8 sandboxes → <span class="hl">~1,100+ workers</span> at peak
+Average load (60/sec × 3 s)  = ~180 sandboxes → ~25 workers
+
+<span class="dim">Peak is ~50x average. Autoscale workers from a queue-depth signal
+and pre-scale before scheduled contests.</span></pre>
+  <h3>Storage</h3>
+<pre>Submissions: 5M/day × 5 KB = 25 GB/day ≈ <span class="hl">~9 TB/year</span> (plus verdict metadata)
+Test cases:  3,000 × 50 MB = <span class="hl">~150 GB</span> in object storage, cached on workers
+Problems and users: small, relational
+Leaderboard: 100K users in a Redis sorted set = a few MB</pre>
+  <h3>Bandwidth</h3>
+<pre>Problem pages are mostly static → CDN. Submissions are tiny (5 KB).
+<span class="dim">The constraint is CPU for judging and isolation, not bandwidth or storage.</span></pre>
+</section>
+
+<section class="step" id="s4">
+  <span class="num">04 / High-level design</span>
+  <h2>Architecture</h2>
+  <p class="lead">Every box exists because of a number from Step 3.</p>
+  <div class="arch"><pre>
+ BROWSER / APP
+     │
+ [ CDN ]  problem pages, static assets
+     │
+ [ API Gateway / LB ]  auth · rate limit
+     │
+ ├─► [ Problem Service ] ─► [ Problems DB ] ─► [ Redis cache ]
+ ├─► [ Submission Service ] ─► [ Submissions DB ]
+ │         │ enqueue
+ │         ▼
+ │   [ Queue: Kafka / SQS ]  (normal lane · contest lane)
+ │         │
+ │         ▼
+ │   [ Judge Workers ] (autoscaled pool)
+ │         │   sandbox per run (container + gVisor / Firecracker)
+ │         ├─► [ Test case cache ] ◄─ [ Object store S3 ]
+ │         └─► result ─► [ Results topic ]
+ │
+ ├─► [ Contest Service ] ─► [ Redis sorted set: leaderboard ]
+ └─► [ Notification / WebSocket ]  verdict push to the user
+
+<span class="dim">Judging is asynchronous: the submit API returns an id immediately, the verdict arrives later</span></pre></div>
+  <h3>Component rationale</h3>
+  <div class="comp">
+    <div class="ci"><div class="cn">Submission service</div><div class="cw">Validates the request, stores the code durably, enqueues a job and returns a submission id fast. Never runs code itself.</div></div>
+    <div class="ci"><div class="cn">Queue (Kafka / SQS)</div><div class="cw">Buffers bursts, decouples submit rate from judge capacity, and lets workers pull at their own pace. Separate lanes for contests.</div></div>
+    <div class="ci"><div class="cn">Judge workers</div><div class="cw">Pull jobs, compile, run in a sandbox with hard limits, compare outputs, and publish the verdict. Stateless, so they autoscale.</div></div>
+    <div class="ci"><div class="cn">Sandbox runtime</div><div class="cw">Isolates untrusted code with containers hardened by gVisor or Firecracker microVMs, seccomp and cgroups.</div></div>
+    <div class="ci"><div class="cn">Test case store + cache</div><div class="cw">Master copies in S3; workers keep hot problems on local disk so each run does not download 50 MB.</div></div>
+    <div class="ci"><div class="cn">Contest service + Redis</div><div class="cw">Updates scores on each accepted submission and serves the live leaderboard from a sorted set.</div></div>
+    <div class="ci"><div class="cn">WebSocket / polling</div><div class="cw">Pushes verdicts to the browser; polling by submission id is the simple fallback.</div></div>
+  </div>
+  <h3>End-to-end flow — "user submits a solution"</h3>
+  <ol>
+    <li>User clicks Submit; the API checks auth and rate limits, stores the code and creates a submission as <code class="i">QUEUED</code>.</li>
+    <li>The job (submission id, language, problem id) is enqueued; the API immediately returns the id.</li>
+    <li>A free worker pulls the job, fetches the source and loads test cases from its local cache (or S3 on a miss).</li>
+    <li>The worker compiles in a sandbox; a compile error ends the run with <code class="i">COMPILE_ERROR</code>.</li>
+    <li>It runs each test with time, memory, process and output limits, then compares the output (or runs a custom checker).</li>
+    <li>It stops at the first failure, or finishes all tests, and publishes the verdict (<code class="i">ACCEPTED</code>, <code class="i">WRONG_ANSWER</code>, <code class="i">TLE</code>…).</li>
+    <li>The Submission Service stores the result, pushes it to the user over WebSocket, and updates the contest leaderboard if applicable.</li>
+  </ol>
+</section>
+
+<section class="step" id="s5">
+  <span class="num">05 / Database design</span>
+  <h2>Storage layer</h2>
+  <p class="lead">Different data, different access patterns, different stores.</p>
+  <div class="tw"><table>
+    <tr><th>Data</th><th>Store</th><th>Why</th></tr>
+    <tr><td>Problems, users, contests</td><td>PostgreSQL</td><td>Relational, modest size, strong consistency</td></tr>
+    <tr><td>Submissions</td><td>PostgreSQL (sharded) / Cassandra</td><td>Append-heavy, query by user and problem</td></tr>
+    <tr><td>Test cases, source archives</td><td>S3 object store</td><td>Large blobs, cheap, versioned</td></tr>
+    <tr><td>Leaderboard, rate limits, cache</td><td>Redis</td><td>Sorted sets, counters, low latency</td></tr>
+    <tr><td>Job queue</td><td>Kafka / SQS</td><td>Durable buffer with retries</td></tr>
+  </table></div>
+  <h3>Core tables and keys</h3>
+<pre>-- PostgreSQL
+CREATE TABLE submissions (
+  submission_id  UUID PRIMARY KEY,
+  user_id        BIGINT NOT NULL,
+  problem_id     INT NOT NULL,
+  contest_id     INT,
+  language       TEXT,
+  code_ref       TEXT,           -- S3 key or inline for small code
+  status         TEXT NOT NULL,  -- QUEUED | RUNNING | ACCEPTED | WRONG_ANSWER | TLE | MLE | RE | CE
+  runtime_ms     INT, memory_kb INT,
+  failed_test    INT,
+  created_at     TIMESTAMP DEFAULT now()
+);
+CREATE INDEX ON submissions (user_id, created_at DESC);
+CREATE INDEX ON submissions (problem_id, status);
+
+-- Redis
+Key: contest:{id}:lb          Value: ZSET  member=user_id  score=encoded(solved, penalty)
+Key: ratelimit:{user}         Value: counter, TTL 60s
+Key: problem:{id}             Value: cached problem JSON, TTL 10m</pre>
+  <h3>Sharding strategy</h3>
+  <ul>
+    <li><strong>Submissions</strong> — shard by <code class="i">user_id</code> so “my submissions” is one shard; archive old rows to cold storage.</li>
+    <li><strong>Problems</strong> — small, replicate and cache; no sharding needed.</li>
+    <li><strong>Queue</strong> — partition by problem or contest lane; separate topics for contest and practice.</li>
+    <li><strong>Leaderboards</strong> — one sorted set per contest; shard by contest id.</li>
+  </ul>
+</section>
+
+<section class="step" id="s6">
+  <span class="num">06 / Deep dives</span>
+  <h2>Deep dive on 3 critical components</h2>
+  <p class="lead">For each: the problem, the naive solution, why it fails, and the real solution. Volunteer these before the interviewer asks.</p>
+
+  <div class="dive"><div class="dh"><span class="tag">01</span> Sandboxed execution — run hostile code safely and fairly</div><div class="db">
+    <p><strong>The problem:</strong> We execute arbitrary code from the internet. It may loop forever, eat memory, fork-bomb, read secrets, or attack our network.</p>
+    <div class="dl fail">Naive solution — run the code directly on the server</div>
+<pre>subprocess.run(["python", "solution.py"])   # same host, same user</pre>
+    <p><strong>Why it fails:</strong> Code can read files, kill processes, open sockets, or exhaust CPU and RAM. One malicious submission can take down the worker or leak data from other users.</p>
+    <div class="dl fix">Real solution — layered isolation with hard resource limits</div>
+<pre>1. Run each submission in a fresh sandbox:
+   container hardened with gVisor (user-space kernel) or a Firecracker
+   microVM for stronger isolation. Destroyed after the run.
+
+2. Limits via cgroups: CPU time, wall time, memory, number of
+   processes (stops fork bombs), open files, output size.
+
+3. Syscall filtering with seccomp: allow only what a program needs.
+   No network namespace, read-only filesystem, tiny writable tmpfs.
+
+4. Run as an unprivileged user with no capabilities; no access to
+   host mounts or secrets.
+
+5. Time and memory: measure CPU time (not just wall time) and kill on
+   exceed → TLE / MLE. Use a language multiplier for slower runtimes.
+
+6. Fairness: pin to dedicated cores, avoid noisy neighbours, and
+   re-run borderline TLEs on a quiet worker before final verdict.
+
+7. Output: compare against expected output (ignore trailing whitespace),
+   or use a custom checker program for problems with many valid answers.
+
+<span class="dim">Warm sandbox pools (pre-created) cut startup from ~1 s to ~100 ms.</span></pre>
+    <div class="insight green">Assume every submission is hostile. Isolation (kernel boundary), hard cgroup limits and no network are non-negotiable; speed tricks come after safety.</div>
+  </div></div>
+
+  <div class="dive"><div class="dh"><span class="tag">02</span> Submission queue &amp; scaling — survive the contest spike</div><div class="db">
+    <p><strong>The problem:</strong> Judging takes seconds of CPU. At contest start, thousands of submissions per second arrive, far above the steady-state judging capacity.</p>
+    <div class="dl fail">Naive solution — judge synchronously inside the request</div>
+<pre>POST /submit → compile → run all tests → respond with verdict</pre>
+    <p><strong>Why it fails:</strong> HTTP requests hang for seconds, connections pile up and time out, and a traffic spike exhausts web servers. A worker crash loses the submission entirely.</p>
+    <div class="dl fix">Real solution — asynchronous queue with autoscaled workers</div>
+<pre>1. Persist the submission first (status QUEUED), then enqueue the job.
+   The API returns the id in milliseconds. Nothing is lost if a
+   worker dies later.
+
+2. Workers pull from the queue; capacity is decoupled from arrival
+   rate. The queue absorbs the burst; latency rises a little, the
+   system never falls over.
+
+3. Visibility timeout / ack: a job taken by a worker that crashes
+   becomes visible again and is retried. Verdict writes are idempotent
+   on submission_id to avoid double-processing.
+
+4. Priority lanes: contest submissions get a reserved, higher-priority
+   queue and dedicated workers so practice traffic cannot starve them.
+
+5. Autoscale on queue depth and oldest-message age; pre-scale before
+   scheduled contests (we know the start time). Keep a warm pool.
+
+6. Per-user rate limit (e.g. 1 submission per few seconds) and dedupe
+   identical code to prevent abuse and wasted compute.
+
+7. Deliver results by WebSocket push; clients fall back to polling
+   GET /submissions/{id}.
+
+<span class="dim">Cache test cases on worker disks (LRU) so most runs avoid
+downloading from S3.</span></pre>
+    <div class="insight amber">The tradeoff is explicit: during a spike we accept longer queue wait (seconds more) to protect correctness and availability. Show “Judging…” status instead of failing.</div>
+  </div></div>
+
+  <div class="dive"><div class="dh"><span class="tag">03</span> Contest leaderboard — live ranking for 100K users</div><div class="db">
+    <p><strong>The problem:</strong> Tens of thousands of participants watch rankings that change with every accepted submission, ordered by problems solved and then penalty time.</p>
+    <div class="dl fail">Naive solution — compute rank with SQL on every page load</div>
+<pre>SELECT user_id, COUNT(*) solved, SUM(penalty) FROM results
+GROUP BY user_id ORDER BY solved DESC, SUM(penalty) ASC</pre>
+    <p><strong>Why it fails:</strong> A group-by and sort over a hot table, executed by 100K users refreshing every few seconds, kills the database. Finding one user’s rank is also an expensive scan.</p>
+    <div class="dl fix">Real solution — Redis sorted set with an encoded score, cached pages</div>
+<pre>1. Encode score so higher is better in one number:
+     score = solved × 10^9 − penalty_seconds
+   (more solved wins; lower penalty breaks ties)
+
+2. On each accepted verdict: ZADD contest:{id}:lb score user_id
+   O(log N). Rank lookup: ZREVRANK; top page: ZREVRANGE 0 49.
+
+3. Penalty rules (wrong attempts, time since start) are computed by the
+   Contest Service when it updates the score, not at read time.
+
+4. Serve the top pages from an in-memory snapshot refreshed every
+   1-2 seconds and cached at the CDN. Users see ≤ 2 s old data,
+   and the DB sees almost no read traffic.
+
+5. A user’s own rank is a single ZREVRANK call, shown separately.
+
+6. Freeze the scoreboard in the last N minutes if the rules say so.
+
+7. Source of truth is the submissions DB. If Redis is lost, rebuild
+   the sorted set by replaying accepted submissions for that contest.
+
+<span class="dim">100K members in a sorted set is only a few MB, comfortably in memory.</span></pre>
+    <div class="insight green">Precompute the ranking at write time and serve reads from memory and cache. Ranking is a read-heavy, derived view; the DB remains the source of truth.</div>
+  </div></div>
+</section>
+
+<section class="step" id="s7">
+  <span class="num">07 / Tradeoffs &amp; alternatives</span>
+  <h2>What we did NOT choose and why</h2>
+  <h3>Rejected alternatives</h3>
+  <div class="tw"><table>
+    <tr><th>Alternative</th><th>Why rejected</th></tr>
+    <tr><td>Run code in the web server</td><td>Unsafe and unscalable; one bad submission harms everyone.</td></tr>
+    <tr><td>Plain Docker with default settings</td><td>Shares the host kernel; add gVisor, seccomp and no network, or use microVMs.</td></tr>
+    <tr><td>Synchronous judging</td><td>Spikes exhaust connections; no retry safety.</td></tr>
+    <tr><td>Always-on worker fleet for peak</td><td>Peak is ~50× average; pay only for what is needed, pre-scale for contests.</td></tr>
+    <tr><td>SQL aggregation for ranking</td><td>Too slow under refresh load; sorted sets give O(log N) updates.</td></tr>
+    <tr><td>Download test cases per run</td><td>Wasteful; cache on workers.</td></tr>
+  </table></div>
+  <h3>What breaks at 10× scale and how we fix it</h3>
+  <div class="dive" style="margin-top:16px"><div class="db">
+    <div class="dl fail">Problem — Contest-start spike</div>
+    <p>Hundreds of thousands open the same problems and submit at the same second.</p>
+    <div class="dl fix">Fix</div>
+    <p>Serve problem statements from CDN (published at start time), pre-warm caches and worker pools, rate-limit submissions per user, and keep the contest queue separate.</p>
+  </div></div>
+  <div class="dive"><div class="db">
+    <div class="dl fail">Problem — Worker crash mid-judge</div>
+    <p>A sandbox or node dies while running a submission.</p>
+    <div class="dl fix">Fix</div>
+    <p>Visibility timeout returns the job to the queue, idempotent result writes, a cap on retries, and a final SYSTEM_ERROR state with automatic re-judge rather than blaming the user.</p>
+  </div></div>
+  <div class="dive"><div class="db">
+    <div class="dl fail">Problem — Sandbox escape or abuse</div>
+    <p>A malicious program tries to escape, mine crypto or reach internal services.</p>
+    <div class="dl fix">Fix</div>
+    <p>Defense in depth: microVM or gVisor, seccomp, no network, short lifetimes, runtime monitoring, and workers in an isolated network segment with no credentials.</p>
+  </div></div>
+  <div class="dive"><div class="db">
+    <div class="dl fail">Problem — Cheating and unfair verdicts</div>
+    <p>Plagiarism in contests, and TLE results that differ run to run.</p>
+    <div class="dl fix">Fix</div>
+    <p>Code similarity detection (token fingerprints) after contests, re-run borderline TLEs on quiet hardware, dedicated cores for timing, and rejudge tools for admins.</p>
+  </div></div>
+</section>
+
+<section class="step" id="s8">
+  <span class="num">08 / Summary</span>
+  <h2>Cheat sheet</h2>
+  <p class="lead">What to remember before walking into the room.</p>
+  <div class="cheat">
+    <div class="cc"><h4>Key numbers</h4><p>1M DAU · 5M submissions/day · ~3K/s contest peak · ~3 s per judge · ~9K concurrent sandboxes at peak</p></div>
+    <div class="cc"><h4>Key datastores</h4><p>PostgreSQL (problems, submissions) · S3 (test cases) · Redis (leaderboard, cache) · Kafka / SQS (queue)</p></div>
+    <div class="cc"><h4>Execution strategy</h4><p>Fresh sandbox per run: gVisor or Firecracker, cgroups, seccomp, no network, CPU-time limits.</p></div>
+    <div class="cc"><h4>Queue strategy</h4><p>Persist then enqueue, async verdicts, priority contest lane, visibility timeout retries, autoscale on queue depth.</p></div>
+    <div class="cc"><h4>Submission state machine</h4><p>QUEUED → RUNNING → ACCEPTED / WRONG_ANSWER / TLE / MLE / RE / CE (or SYSTEM_ERROR → rejudge).</p></div>
+    <div class="cc"><h4>Key tradeoffs</h4><p>Safety vs. startup speed. Queue wait vs. fleet cost. Leaderboard freshness vs. read load.</p></div>
+    <div class="cc"><h4>Hardest part</h4><p>Running untrusted code safely and fairly while absorbing a 50× burst of judging work.</p></div>
+    <div class="cc"><h4>Patterns</h4><p>Async job queue · worker pool autoscaling · sandboxing · idempotent writes · write-time ranking · CDN for statics</p></div>
+    <div class="cc"><h4>Sharding keys</h4><p>Submissions → user_id · Queue → lane / problem · Leaderboard → contest_id · Cache → problem_id</p></div>
+    <div class="cc"><h4>Interview time map</h4><p>0–3: clarify · 3–7: requirements + estimation · 7–16: HLD + flow · 16–23: data model · 23–29: deep dives · 29–30: tradeoffs</p></div>
+  </div>
+  <h3>Isolation options — at a glance</h3>
+  <div class="tw"><table>
+    <tr><th>Approach</th><th>Isolation</th><th>Startup</th><th>Best for</th></tr>
+    <tr><td>Plain process (chroot)</td><td>Weak</td><td>Instant</td><td>Never for untrusted code</td></tr>
+    <tr><td>Container + seccomp</td><td>Medium (shared kernel)</td><td>~100s of ms</td><td>Trusted-ish, low risk</td></tr>
+    <tr><td>gVisor</td><td>Strong (user-space kernel)</td><td>~100s of ms</td><td>Good balance for judges</td></tr>
+    <tr><td>Firecracker microVM</td><td>Strongest (own kernel)</td><td>~125 ms with snapshots</td><td>High-risk, multi-tenant</td></tr>
+  </table></div>
+</section>
+
+</main>
+</div>
+
+<footer><span>System Design Case Study — Online Judge · LeetCode / Codeforces style</span><span>Written as a high-level design walkthrough</span></footer>
+
+<script>
+const links=document.querySelectorAll('nav.toc a');
+const obs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){const id=e.target.id;links.forEach(l=>l.classList.toggle('active',l.getAttribute('href')==='#'+id))}})},{rootMargin:'-20% 0px -70% 0px'});
+document.querySelectorAll('section.step').forEach(s=>obs.observe(s));
+</script>
+</body>
+</html>
