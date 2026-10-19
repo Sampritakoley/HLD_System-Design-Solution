@@ -1,7 +1,7 @@
 # 🏗️ System Design Interview Handbook
 ### High-Level Design (HLD) for Scalable Distributed Systems
 
-> A comprehensive, interview-focused repository covering **170+ High-Level Design (HLD) problems** frequently asked in FAANG, MAANG, top product companies, and leading Indian unicorns such as Swiggy, Razorpay, Flipkart, CRED, PhonePe, Zepto, and Meesho.
+> A comprehensive, interview-focused repository covering **High-Level Design (HLD) problems** frequently asked in FAANG, MAANG, top product companies, and leading Indian unicorns such as Swiggy, Razorpay, Flipkart, CRED, PhonePe, Zepto, and Meesho.
 
 This repository is designed to help software engineers **master System Design interviews** by following a structured approach to designing scalable distributed systems. Each solution focuses on the engineering thought process expected during real interviews—from requirement gathering to architecture, scaling strategies, and trade-off analysis.
 
