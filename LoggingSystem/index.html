@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Designing a Distributed Logging System — System Design Case Study</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#FAF8F4;--raised:#FFFFFF;--ink:#16181C;--soft:#52524E;--faint:#8A887F;--line:#DEDAD0;--strong:#C7C2B5;--signal:#D85A30;--sig-soft:#FAECE7;--sig-deep:#4A1B0C;--code:#16181C;--mono:'JetBrains Mono',monospace;--sans:'Inter',system-ui,sans-serif;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--paper:#14151A;--raised:#1D1F25;--ink:#ECEAE3;--soft:#B5B3AA;--line:#2E3038;--strong:#43454F;--sig-soft:#3A1E14;--sig-deep:#F5B9A3}}
+:root[data-theme="dark"]{--paper:#14151A;--raised:#1D1F25;--ink:#ECEAE3;--soft:#B5B3AA;--line:#2E3038;--strong:#43454F;--sig-soft:#3A1E14;--sig-deep:#F5B9A3}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased}
+a{color:var(--signal);text-decoration:none}a:hover{text-decoration:underline}
+.badge{position:fixed;top:calc(18px + env(safe-area-inset-top,0px));right:24px;z-index:50;background:var(--signal);padding:8px 16px;border-radius:999px;box-shadow:0 2px 14px rgba(216,90,48,.35);line-height:1.3;display:flex;flex-direction:column}
+.badge b{font-size:12.5px;font-weight:600;color:#fff}
+.badge span{font-family:var(--mono);font-size:10.5px;color:rgba(255,255,255,.75)}
+.badge a{color:rgba(255,255,255,.85)}.badge a:hover{color:#fff}
+@media (max-width:640px){.badge{position:static;margin:14px 32px 0;width:fit-content}}
+header.hero{max-width:1080px;margin:0 auto;padding:64px 32px 48px;border-bottom:1px solid var(--line)}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);display:flex;align-items:center;gap:10px;margin-bottom:20px}
+.eyebrow::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--signal)}
+h1{font-size:44px;font-weight:700;letter-spacing:-.02em;line-height:1.12;max-width:780px}
+h1 em{font-style:normal;color:var(--signal)}
+.sub{margin-top:18px;font-size:18px;color:var(--soft);max-width:640px}
+.meta{display:flex;gap:28px;margin-top:32px;flex-wrap:wrap}
+.meta div{font-family:var(--mono);font-size:12px;color:var(--faint)}
+.meta b{color:var(--ink);font-weight:600;display:block;font-size:14px;margin-top:2px}
+.layout{max-width:1080px;margin:0 auto;display:grid;grid-template-columns:200px 1fr;gap:56px;padding:0 32px}
+nav.toc{position:sticky;top:32px;align-self:start;padding-top:48px;font-family:var(--mono);font-size:12px}
+nav.toc a{display:block;color:var(--faint);padding:6px 0 6px 12px;border-left:2px solid transparent;margin-left:-13px}
+nav.toc a:hover,nav.toc a.active{color:var(--ink);border-left-color:var(--signal);text-decoration:none}
+main{padding:48px 0 80px;min-width:0}
+section.step{padding:40px 0;border-bottom:1px solid var(--line)}
+section.step:first-child{padding-top:0}
+.num{font-family:var(--mono);font-size:13px;color:var(--signal);font-weight:600;margin-bottom:8px;display:block}
+h2{font-size:26px;font-weight:700;letter-spacing:-.01em;margin-bottom:18px}
+h3{font-size:16px;font-weight:600;margin:28px 0 12px}
+p{margin-bottom:14px;max-width:680px}
+p.lead{font-size:17px;color:var(--soft)}
+ul,ol{margin:0 0 16px;padding:0;max-width:680px}
+li{list-style:none;padding-left:20px;position:relative;margin-bottom:8px;font-size:15px}
+li::before{content:'—';position:absolute;left:0;color:var(--faint)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin:20px 0}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin:20px 0}
+.card{background:var(--raised);border:1px solid var(--line);padding:18px 20px}
+.card h4{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);font-weight:600;margin-bottom:10px}
+.card p{font-size:14px;margin:0}.card ul{margin:0}.card li{font-size:13px}
+.metric{border-left:2px solid var(--signal);padding:4px 0 4px 16px}
+.metric .n{font-family:var(--mono);font-size:28px;font-weight:600;display:block;line-height:1.1}
+.metric .l{font-size:12px;color:var(--faint);margin-top:2px}
+.insight{border-left:2px solid;padding:10px 16px;margin:12px 0;font-size:14px;line-height:1.65;max-width:680px}
+.amber{border-color:#B07D2B;background:#FBF5E8;color:#5A3D0A}
+.green{border-color:#3B6D11;background:#EEF7E8;color:#1E3B08}
+pre{font-family:var(--mono);font-size:12.5px;line-height:1.8;background:var(--code);color:#E9E7DF;padding:20px 22px;overflow-x:auto;margin:16px 0;border-radius:2px}
+.hl{color:var(--signal)}.dim{color:#8A887F}
+code.i{font-family:var(--mono);font-size:13px;background:var(--sig-soft);color:var(--sig-deep);padding:1px 6px;border-radius:2px}
+.tw{overflow-x:auto;max-width:760px}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;min-width:520px}
+th{text-align:left;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);font-weight:600;padding:8px 12px;border-bottom:1px solid var(--strong)}
+td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top;color:var(--soft)}
+td:first-child{color:var(--ink);font-weight:500}
+.dive{border:1px solid var(--line);margin:24px 0}
+.dh{background:var(--ink);color:var(--paper);padding:12px 18px;font-family:var(--mono);font-size:13px;font-weight:500;display:flex;gap:10px;align-items:center}
+.dh .tag{background:var(--signal);color:#fff;font-size:10px;padding:2px 7px}
+.db{padding:20px 22px}.db p{font-size:14px}
+.dl{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin:18px 0 6px}
+.fail{color:#C24444}.fix{color:#4C8A1A}
+.arch{background:var(--code);padding:24px;overflow-x:auto;margin:20px 0}.arch pre{background:transparent;padding:0;margin:0}
+.comp{border:1px solid var(--line);margin:16px 0}
+.ci{padding:14px 16px;border-bottom:1px solid var(--line)}.ci:last-child{border:none}
+.cn{font-weight:600;font-size:14px;margin-bottom:4px}.cw{font-size:13px;color:var(--soft);line-height:1.6}
+.q{font-size:13px;padding:9px 14px;background:var(--raised);border:1px solid var(--line);margin:6px 0;color:var(--soft)}
+.q::before{content:"? ";color:var(--faint);font-family:var(--mono)}
+.cheat{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);margin:20px 0}
+.cc{background:var(--raised);padding:16px 18px}
+.cc h4{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--signal);margin-bottom:6px}
+.cc p{font-size:13px;margin:0;color:var(--soft)}
+footer{border-top:1px solid var(--line);padding:40px 32px 60px;max-width:1080px;margin:0 auto;font-family:var(--mono);font-size:12px;color:var(--faint);display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+@media (max-width:840px){.layout{grid-template-columns:1fr;gap:0}nav.toc{position:static;display:flex;overflow-x:auto;gap:4px;padding:16px 0;border-bottom:1px solid var(--line);white-space:nowrap}nav.toc a{border-left:none;border-bottom:2px solid transparent;margin:0;padding:6px 10px}nav.toc a.active{border-bottom-color:var(--signal)}h1{font-size:32px}.grid2,.grid3,.cheat{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="badge"><b>Samprita Koley</b><span><a href="mailto:sampritakoley01@gmail.com">sampritakoley01@gmail.com</a> · <a href="https://www.linkedin.com/in/sampritakoley/" target="_blank" rel="noopener">LinkedIn</a></span></div>
+
+<header class="hero">
+  <div class="eyebrow">System Design Case Study</div>
+  <h1>Designing a Logging System when <em>1 million log lines</em> arrive every second.</h1>
+  <p class="sub">A complete high-level design walkthrough: requirements, capacity estimation, architecture, data model, and three deep dives into the hardest problems: ingestion at scale, storage and indexing, and fast search with alerting.</p>
+  <div class="meta">
+    <div>SCOPE<b>Collect · Ingest · Store · Search · Alert</b></div>
+    <div>FORMAT<b>8-step HLD walkthrough</b></div>
+    <div>FOCUS<b>Write throughput &amp; tiered storage</b></div>
+  </div>
+</header>
+
+<div class="layout">
+<nav class="toc" id="toc">
+  <a href="#s1">01 · Problem</a><a href="#s2">02 · Requirements</a><a href="#s3">03 · Estimation</a><a href="#s4">04 · Architecture</a><a href="#s5">05 · Database</a><a href="#s6">06 · Deep Dives</a><a href="#s7">07 · Tradeoffs</a><a href="#s8">08 · Cheat Sheet</a>
+</nav>
+<main>
+
+<section class="step" id="s1">
+  <span class="num">01 / Understanding the problem</span>
+  <h2>What is this system, really?</h2>
+  <p class="lead">A centralized logging system collects log lines from thousands of services and machines, stores them durably and cheaply, and lets engineers search them and get alerted within seconds. It is what you open at 3 a.m. when production breaks.</p>
+  <p>The core tension: writes are enormous and constant, while reads are rare but urgent and must be fast. The system must never lose logs during an incident, which is exactly when log volume spikes.</p>
+  <h3>Core features in scope</h3>
+  <div class="grid2">
+    <div class="card"><h4>Collection</h4><p>Agents on every host and sidecars collect logs from files, stdout and SDKs.</p></div>
+    <div class="card"><h4>Search &amp; filter</h4><p>Full-text and field queries over a time range, by service, level, trace id.</p></div>
+    <div class="card"><h4>Alerting</h4><p>Rules such as “error rate &gt; 5% for 5 minutes” notify on-call near real time.</p></div>
+    <div class="card"><h4>Retention &amp; access</h4><p>Tiered retention, multi-tenant access control, export and audit.</p></div>
+  </div>
+  <h3>What makes this hard at scale</h3>
+  <ul>
+    <li><strong>Write firehose.</strong> Millions of events per second, with spikes during outages.</li>
+    <li><strong>Storage cost.</strong> Tens of terabytes per day; indexing everything is far too expensive.</li>
+    <li><strong>Query latency.</strong> Search over terabytes in seconds, for needle-in-haystack queries.</li>
+    <li><strong>Reliability under stress.</strong> The logging pipeline must survive the incidents it reports.</li>
+    <li><strong>Noisy neighbours.</strong> One chatty service can drown out everyone else.</li>
+  </ul>
+</section>
+
+<section class="step" id="s2">
+  <span class="num">02 / Requirements</span>
+  <h2>Functional vs. non-functional requirements</h2>
+  <p class="lead">Non-functional requirements drive the architecture, so they come first.</p>
+  <div class="grid2">
+    <div class="card"><h4>Functional</h4><ul>
+      <li>Ingest logs from many sources and formats</li>
+      <li>Search by text, fields, time range and service</li>
+      <li>Live tail of a service’s logs</li>
+      <li>Dashboards and aggregations (counts, rates)</li>
+      <li>Alert rules with notifications</li>
+      <li>Retention policies and archiving</li>
+      <li>Multi-tenant access control</li>
+      <li>Mask sensitive data (PII, secrets)</li>
+    </ul></div>
+    <div class="card"><h4>Non-functional</h4><ul>
+      <li>1M events/sec average, 3M/sec peak, ~43 TB/day</li>
+      <li>Searchable within ~5-10 seconds of emit</li>
+      <li>Query p95 &lt; 5 s for recent data</li>
+      <li>High durability; at-least-once delivery</li>
+      <li>99.9%+ availability for ingestion</li>
+      <li>Never block the application on logging</li>
+      <li>Cost-efficient: tiered hot, warm, cold</li>
+      <li>Scales horizontally</li>
+    </ul></div>
+  </div>
+  <h3>Clarifying questions</h3>
+  <div class="q">Is this for application logs only, or also metrics and traces?</div>
+  <div class="q">How long must logs be searchable, and how long archived (compliance)?</div>
+  <div class="q">Is losing a small fraction of logs acceptable, or are some (audit) logs lossless?</div>
+  <div class="q">Do we need full-text search, or mostly filtering by labels plus grep?</div>
+  <div class="q">Multi-tenant with per-team quotas, or one shared company?</div>
+</section>
+
+<section class="step" id="s3">
+  <span class="num">03 / Estimation</span>
+  <h2>Back-of-envelope math</h2>
+  <p class="lead">Order-of-magnitude accuracy, with every assumption stated.</p>
+  <div class="grid3">
+    <div class="metric"><span class="n">~1M/s</span><span class="l">Log events (3M/s peak)</span></div>
+    <div class="metric"><span class="n">~500 MB/s</span><span class="l">Ingest bandwidth</span></div>
+    <div class="metric"><span class="n">~43 TB/day</span><span class="l">Raw volume</span></div>
+  </div>
+  <h3>Assumptions</h3>
+<pre>Instances emitting logs = ~100K (across ~10K services)
+Events per instance     = ~10/sec average → 1M/sec total
+Average log line        = ~500 bytes
+Peak factor             = ~3x during incidents
+Compression             = ~8-10x for text logs
+Search load             = ~500 queries/sec peak (engineers, dashboards, alerts)</pre>
+  <h3>Throughput</h3>
+<pre>Events:    <span class="hl">1M/sec avg → ~3M/sec peak</span>
+Bandwidth: 1M × 500 B = <span class="hl">~500 MB/s avg → ~1.5 GB/s peak</span>
+Kafka:     at ~50 MB/s per partition → ~30-60 partitions minimum,
+           use hundreds for headroom and parallel consumers
+
+<span class="dim">Writes dominate by orders of magnitude. Design for append-only,
+sequential writes and batching.</span></pre>
+  <h3>Storage</h3>
+<pre>Raw per day:          500 MB/s × 86,400 = <span class="hl">~43 TB/day</span>
+Compressed (~10x):    ~4.3 TB/day
+Hot (7 days, indexed): ~4.3 TB × 7 ≈ 30 TB + index overhead (~2x) = <span class="hl">~60 TB</span>
+Warm (30 days):        ~130 TB compressed on cheaper disks
+Cold (1 year, S3):     ~1.6 PB compressed, object storage
+
+<span class="dim">Cost is the real constraint: tiering and not indexing every
+field cut it by an order of magnitude.</span></pre>
+</section>
+
+<section class="step" id="s4">
+  <span class="num">04 / High-level design</span>
+  <h2>Architecture</h2>
+  <p class="lead">Every box exists because of a number from Step 3.</p>
+  <div class="arch"><pre>
+ APPS / HOSTS / CONTAINERS
+   │  stdout, files, SDK
+ [ Log Agent / Sidecar ]  buffer · batch · compress · retry
+   │
+ [ Ingest Gateway ]  auth · tenant quota · rate limit
+   │
+ [ Kafka ]  topics partitioned by tenant/service  ← durable buffer
+   │
+ ├─► [ Stream Processor ]  parse · enrich · mask PII · route
+ │         │
+ │         ├─► [ Indexer ] ─► [ Hot store: search index ]  (7 days)
+ │         ├─► [ Archiver ] ─► [ Object store S3 ]          (warm/cold, Parquet)
+ │         └─► [ Alert Engine ] ─► Notifications (PagerDuty / Slack)
+ │
+ └─► [ Query Service ] ─► hot index + S3 · cache · UI / API / dashboards
+
+<span class="dim">Kafka decouples bursty producers from slower storage, so spikes never reach the databases</span></pre></div>
+  <h3>Component rationale</h3>
+  <div class="comp">
+    <div class="ci"><div class="cn">Log agent / sidecar</div><div class="cw">Reads logs locally, buffers on disk, batches and compresses, then ships. Keeps the app independent of logging availability.</div></div>
+    <div class="ci"><div class="cn">Ingest gateway</div><div class="cw">Authenticates sources, enforces per-tenant quotas and applies backpressure. Prevents one noisy service from hurting others.</div></div>
+    <div class="ci"><div class="cn">Kafka</div><div class="cw">Durable, ordered, replayable buffer that absorbs 3× spikes and lets multiple consumers read the same stream independently.</div></div>
+    <div class="ci"><div class="cn">Stream processor</div><div class="cw">Parses raw lines into structured fields, adds metadata (host, service, trace id), masks secrets, and routes to the right sinks.</div></div>
+    <div class="ci"><div class="cn">Hot store (search index)</div><div class="cw">Elasticsearch/OpenSearch or ClickHouse for the last days: fast queries and aggregations on recent data.</div></div>
+    <div class="ci"><div class="cn">Object store archive</div><div class="cw">Compressed columnar files in S3 for cheap long retention, queried on demand by a query engine.</div></div>
+    <div class="ci"><div class="cn">Alert engine</div><div class="cw">Evaluates rules on the live stream (not by polling the database) for near-real-time notifications.</div></div>
+  </div>
+  <h3>End-to-end flow — "a service logs an error and someone searches it"</h3>
+  <ol>
+    <li>The app writes a log line to stdout; the local agent tails it, adds host and service labels, and batches lines.</li>
+    <li>The agent compresses the batch and sends it to the Ingest Gateway; if the network fails it retries from its disk buffer.</li>
+    <li>The gateway checks the tenant quota and appends the batch to Kafka (partition by service or tenant).</li>
+    <li>The stream processor parses the line into fields, masks sensitive values and tags severity.</li>
+    <li>The indexer bulk-writes to the hot store; in parallel the archiver writes batched Parquet files to S3.</li>
+    <li>The alert engine counts errors per service in sliding windows and fires a notification when a rule is met.</li>
+    <li>An engineer queries “service=checkout level=ERROR last 15m”; the Query Service prunes by time and service, scatters to shards, merges and returns results.</li>
+  </ol>
+</section>
+
+<section class="step" id="s5">
+  <span class="num">05 / Database design</span>
+  <h2>Storage layer</h2>
+  <p class="lead">Different data, different access patterns, different stores: hot, warm and cold tiers.</p>
+  <div class="tw"><table>
+    <tr><th>Data</th><th>Store</th><th>Why</th></tr>
+    <tr><td>Buffer</td><td>Kafka</td><td>Durable, replayable, absorbs bursts</td></tr>
+    <tr><td>Hot logs (1-7 days)</td><td>Elasticsearch / ClickHouse</td><td>Fast search and aggregations</td></tr>
+    <tr><td>Warm / cold logs</td><td>S3 + Parquet</td><td>Very cheap, columnar, compressible</td></tr>
+    <tr><td>Alert rules, tenants, users</td><td>PostgreSQL</td><td>Small relational metadata</td></tr>
+    <tr><td>Query result cache</td><td>Redis</td><td>Repeated dashboard queries</td></tr>
+  </table></div>
+  <h3>Log schema and layout</h3>
+<pre>-- Structured log event
+{ "ts": 1767225600123,           -- event time (ms)
+  "tenant": "payments",
+  "service": "checkout",
+  "level": "ERROR",
+  "host": "ip-10-0-3-17",
+  "trace_id": "9f3c...",
+  "message": "card authorization timeout",
+  "fields": { "order_id": "...", "latency_ms": 5021 } }
+
+-- Hot index: one index per day (or hour) per tenant group
+logs-2026.01.01-shard-0..N     -- time-based partitioning, drop whole index on expiry
+
+-- S3 layout (archive), partitioned for pruning
+s3://logs/tenant=payments/service=checkout/date=2026-01-01/hour=14/part-0001.parquet</pre>
+  <h3>Sharding and retention strategy</h3>
+  <ul>
+    <li><strong>Time-based partitions</strong> — most queries have a time range; expiring data means dropping a whole partition.</li>
+    <li><strong>Kafka</strong> — partition by <code class="i">tenant + service</code> to keep ordering per source and spread load.</li>
+    <li><strong>Hot index</strong> — shards by time and a hash of service, balanced to avoid hot shards.</li>
+    <li><strong>Lifecycle</strong> — hot 7 days, warm 30 days (fewer replicas), cold up to 1 year in S3, then delete or glacier.</li>
+  </ul>
+</section>
+
+<section class="step" id="s6">
+  <span class="num">06 / Deep dives</span>
+  <h2>Deep dive on 3 critical components</h2>
+  <p class="lead">For each: the problem, the naive solution, why it fails, and the real solution. Volunteer these before the interviewer asks.</p>
+
+  <div class="dive"><div class="dh"><span class="tag">01</span> Ingestion — absorb millions of events/sec without losing logs</div><div class="db">
+    <p><strong>The problem:</strong> Every instance emits logs continuously, volume triples during incidents, and the pipeline must neither lose data nor slow the applications.</p>
+    <div class="dl fail">Naive solution — apps write straight to the database</div>
+<pre>app → INSERT INTO logs (...)    # or synchronous HTTP call per line</pre>
+    <p><strong>Why it fails:</strong> A synchronous call per log line adds latency to the app and couples its health to the logging system. The database cannot take 3M writes/sec; a spike causes failures and data loss exactly when it matters.</p>
+    <div class="dl fix">Real solution — local agent, batching, Kafka as shock absorber</div>
+<pre>1. Agent on each host tails files/stdout asynchronously. The app never
+   waits on the network.
+
+2. Agent batches (e.g. 1 MB or 1 s), compresses (gzip/zstd) and keeps a
+   bounded on-disk buffer to survive outages. On overflow: drop oldest
+   DEBUG first, never block the app.
+
+3. Ingest gateway authenticates, applies per-tenant rate limits and
+   returns 429 for backpressure; agents back off with jitter.
+
+4. Kafka with replication factor 3 and acks=all for durable writes.
+   Partition by tenant+service; many partitions for parallel consumers.
+
+5. Delivery is at-least-once. Duplicates are handled with a log id
+   (agent id + sequence number) and idempotent writes in the indexer.
+
+6. Priority lanes: audit and error logs on a protected topic so they
+   survive overload; debug logs are sampled or dropped first.
+
+<span class="dim">Kafka retention of a few hours to days lets us replay if a
+downstream store or parser has a bug.</span></pre>
+    <div class="insight green">Make logging asynchronous and buffered at every hop. A log queue absorbs spikes so the slow, expensive stores only see a smoothed, batched stream.</div>
+  </div></div>
+
+  <div class="dive"><div class="dh"><span class="tag">02</span> Storage &amp; indexing — petabytes without bankrupting the company</div><div class="db">
+    <p><strong>The problem:</strong> 43 TB per day must stay searchable, but a full inverted index on all text multiplies storage and CPU cost.</p>
+    <div class="dl fail">Naive solution — index every field in one big cluster, forever</div>
+<pre>Elasticsearch: dynamic mapping, all fields indexed, 1 year on SSD</pre>
+    <p><strong>Why it fails:</strong> Index size can exceed the raw data, and field explosions (every unique key becomes a mapping) crash clusters. Keeping a year on SSD costs vastly more than the value of old logs.</p>
+    <div class="dl fix">Real solution — selective indexing, columnar storage, tiering</div>
+<pre>1. Index only what is queried by structure: timestamp, tenant, service,
+   level, trace_id, host. Keep the message as a compressed blob, and
+   scan it with grep-style search inside the narrowed set.
+   (Loki style: index labels, not content. Cheap and fast enough.)
+
+2. Time-partitioned indices. Writes go to the current partition only;
+   old partitions are read-only and can be force-merged and compressed.
+
+3. Tiering with lifecycle rules:
+     hot  (0-7d)   SSD, replicas=1-2, full indexing
+     warm (7-30d)  HDD, fewer replicas, fewer fields
+     cold (30d-1y) Parquet on S3, queried by Trino/Athena/ClickHouse
+     expire        delete or move to glacier for compliance
+
+4. Columnar format (Parquet) compresses repetitive logs 10x or more
+   and lets queries read only needed columns.
+
+5. Limit field cardinality and mapping: reject or flatten explosive
+   keys; keep high-cardinality values in the message body.
+
+6. Bloom filters and min/max stats per file skip data that cannot match.
+
+<span class="dim">Keep hot small. Most queries hit the last hour; almost none
+touch last quarter, so cold must be cheap, not fast.</span></pre>
+    <div class="insight amber">Index less, compress more, tier by age. The tradeoff is slower queries on old data in exchange for a 10× lower bill.</div>
+  </div></div>
+
+  <div class="dive"><div class="dh"><span class="tag">03</span> Query &amp; alerting — find the needle fast, page the right person</div><div class="db">
+    <p><strong>The problem:</strong> Engineers need results in seconds across terabytes, and alerts must fire within a minute of a problem starting.</p>
+    <div class="dl fail">Naive solution — scan everything, poll for alerts</div>
+<pre>SELECT * FROM logs WHERE message LIKE '%timeout%';   -- full scan
+every minute: run each alert query against the database</pre>
+    <p><strong>Why it fails:</strong> Full scans over terabytes take minutes and starve other users. Thousands of alert rules polling the database add heavy constant load and react slowly.</p>
+    <div class="dl fix">Real solution — pruned scatter-gather, caching, stream-based alerts</div>
+<pre>1. Always require a time range (default last 15 min). Prune partitions
+   by time, tenant and service before touching any data.
+
+2. Scatter the query to relevant shards in parallel, each returns
+   top-K or partial aggregates, the coordinator merges. Stream
+   partial results to the UI.
+
+3. Cache dashboard queries in Redis with short TTLs; align time buckets
+   so refreshes hit the cache. Pre-aggregate common metrics
+   (errors per service per minute) as rollups.
+
+4. Guardrails: query timeouts, max scanned bytes, per-user concurrency
+   limits and separate query pools so heavy queries cannot starve alerts.
+
+5. Alerting on the stream: Kafka consumers keep sliding-window counters
+   per rule (e.g. errors per 5 min per service). Fire when thresholds
+   are crossed, with deduplication and grouping.
+
+6. Live tail: subscribe to the Kafka topic filtered by labels and push
+   over WebSocket rather than polling the index.
+
+<span class="dim">Alert on rollup counters and the stream, never on ad-hoc
+full-text scans of the store.</span></pre>
+    <div class="insight green">Prune before you scan, and move continuous questions (alerts, tail) onto the stream instead of repeatedly asking the database.</div>
+  </div></div>
+</section>
+
+<section class="step" id="s7">
+  <span class="num">07 / Tradeoffs &amp; alternatives</span>
+  <h2>What we did NOT choose and why</h2>
+  <h3>Rejected alternatives</h3>
+  <div class="tw"><table>
+    <tr><th>Alternative</th><th>Why rejected</th></tr>
+    <tr><td>Apps write directly to storage</td><td>Couples app health to logging; cannot absorb spikes.</td></tr>
+    <tr><td>Relational DB for logs</td><td>Wrong shape for append-heavy, huge, time-series text.</td></tr>
+    <tr><td>Index all fields and full text</td><td>Index larger than data; mapping explosions; very costly.</td></tr>
+    <tr><td>Keep all logs on SSD</td><td>Old logs are rarely read; tiering saves most of the cost.</td></tr>
+    <tr><td>Exactly-once delivery everywhere</td><td>Expensive; at-least-once plus idempotent writes is enough.</td></tr>
+    <tr><td>Polling the DB for alerts</td><td>Heavy constant load and slow detection; stream processing is better.</td></tr>
+  </table></div>
+  <h3>What breaks at 10× scale and how we fix it</h3>
+  <div class="dive" style="margin-top:16px"><div class="db">
+    <div class="dl fail">Problem — Log storm from one service</div>
+    <p>A bug in a loop emits millions of lines per second and floods the pipeline for everyone.</p>
+    <div class="dl fix">Fix</div>
+    <p>Per-tenant and per-service quotas at the gateway, dynamic sampling and dedupe of repeated lines (“repeated 10,000 times”), and isolated Kafka topics for noisy tenants.</p>
+  </div></div>
+  <div class="dive"><div class="db">
+    <div class="dl fail">Problem — Indexer or search cluster falls behind</div>
+    <p>Hot store cannot keep up; consumer lag grows and searches miss recent logs.</p>
+    <div class="dl fix">Fix</div>
+    <p>Kafka buffers the backlog, autoscale consumers per partition, prioritize error logs, monitor lag as a first-class alert, and shed DEBUG logs first if necessary.</p>
+  </div></div>
+  <div class="dive"><div class="db">
+    <div class="dl fail">Problem — Hot shards and mapping explosion</div>
+    <p>Skewed services overload single shards; unbounded field names bloat cluster state.</p>
+    <div class="dl fix">Fix</div>
+    <p>Shard by time plus hashed service, split large tenants, enforce field limits and flatten dynamic keys into a single attributes field.</p>
+  </div></div>
+  <div class="dive"><div class="db">
+    <div class="dl fail">Problem — Sensitive data in logs</div>
+    <p>Passwords, tokens or card numbers leak into logs and into long-term storage.</p>
+    <div class="dl fix">Fix</div>
+    <p>Redact and mask in the agent and again in the stream processor, schema-level denylist, per-tenant access control, encryption at rest, and audit logs for who searched what.</p>
+  </div></div>
+</section>
+
+<section class="step" id="s8">
+  <span class="num">08 / Summary</span>
+  <h2>Cheat sheet</h2>
+  <p class="lead">What to remember before walking into the room.</p>
+  <div class="cheat">
+    <div class="cc"><h4>Key numbers</h4><p>1M events/sec (3M peak) · ~500 MB/s · ~43 TB/day · ~10x compression · 7d hot / 30d warm / 1y cold</p></div>
+    <div class="cc"><h4>Key datastores</h4><p>Kafka (buffer) · Elasticsearch / ClickHouse (hot) · S3 + Parquet (cold) · PostgreSQL (metadata) · Redis (cache)</p></div>
+    <div class="cc"><h4>Ingestion strategy</h4><p>Local agent, batch and compress, gateway quotas, Kafka acks=all, at-least-once with idempotent writes.</p></div>
+    <div class="cc"><h4>Storage strategy</h4><p>Index only key fields, time-partitioned, tier hot to cold, columnar compression, drop whole partitions.</p></div>
+    <div class="cc"><h4>Query strategy</h4><p>Mandatory time range, prune then scatter-gather, rollups and cache, query guardrails.</p></div>
+    <div class="cc"><h4>Key tradeoffs</h4><p>Cost vs. query speed. Index depth vs. storage size. Durability vs. dropping debug logs under overload.</p></div>
+    <div class="cc"><h4>Hardest part</h4><p>Staying cheap and reliable at 40+ TB/day while still answering needle-in-haystack queries in seconds.</p></div>
+    <div class="cc"><h4>Patterns</h4><p>Buffering queue · backpressure · tiered storage · time partitioning · stream alerting · sampling</p></div>
+    <div class="cc"><h4>Partition keys</h4><p>Kafka → tenant+service · Index → time + service hash · S3 → tenant/service/date/hour</p></div>
+    <div class="cc"><h4>Interview time map</h4><p>0–3: clarify · 3–7: requirements + estimation · 7–16: HLD + flow · 16–23: data model · 23–29: deep dives · 29–30: tradeoffs</p></div>
+  </div>
+  <h3>Storage tiers — at a glance</h3>
+  <div class="tw"><table>
+    <tr><th>Tier</th><th>Age</th><th>Medium</th><th>Query speed</th></tr>
+    <tr><td>Hot</td><td>0-7 days</td><td>SSD, indexed</td><td>Sub-second to seconds</td></tr>
+    <tr><td>Warm</td><td>7-30 days</td><td>HDD, fewer replicas</td><td>Seconds</td></tr>
+    <tr><td>Cold</td><td>30 days - 1 year</td><td>S3 Parquet</td><td>Seconds to minutes</td></tr>
+    <tr><td>Archive</td><td>Compliance</td><td>Glacier</td><td>Hours, restore first</td></tr>
+  </table></div>
+</section>
+
+</main>
+</div>
+
+<footer><span>System Design Case Study — Distributed Logging System · ELK / Loki / Splunk style</span><span>Written as a high-level design walkthrough</span></footer>
+
+<script>
+const links=document.querySelectorAll('nav.toc a');
+const obs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){const id=e.target.id;links.forEach(l=>l.classList.toggle('active',l.getAttribute('href')==='#'+id))}})},{rootMargin:'-20% 0px -70% 0px'});
+document.querySelectorAll('section.step').forEach(s=>obs.observe(s));
+</script>
+</body>
+</html>
