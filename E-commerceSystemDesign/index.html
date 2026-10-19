@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Designing an E-commerce System (Flipkart-style) — System Design Case Study</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#FAF8F4;--raised:#FFFFFF;--ink:#16181C;--soft:#52524E;--faint:#8A887F;--line:#DEDAD0;--strong:#C7C2B5;--signal:#D85A30;--sig-soft:#FAECE7;--sig-deep:#4A1B0C;--code:#16181C;--mono:'JetBrains Mono',monospace;--sans:'Inter',system-ui,sans-serif;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--paper:#14151A;--raised:#1D1F25;--ink:#ECEAE3;--soft:#B5B3AA;--line:#2E3038;--strong:#43454F;--sig-soft:#3A1E14;--sig-deep:#F5B9A3}}
+:root[data-theme="dark"]{--paper:#14151A;--raised:#1D1F25;--ink:#ECEAE3;--soft:#B5B3AA;--line:#2E3038;--strong:#43454F;--sig-soft:#3A1E14;--sig-deep:#F5B9A3}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased}
+a{color:var(--signal);text-decoration:none}a:hover{text-decoration:underline}
+.badge{position:fixed;top:calc(18px + env(safe-area-inset-top,0px));right:24px;z-index:50;background:var(--signal);padding:8px 16px;border-radius:999px;box-shadow:0 2px 14px rgba(216,90,48,.35);line-height:1.3;display:flex;flex-direction:column}
+.badge b{font-size:12.5px;font-weight:600;color:#fff}
+.badge span{font-family:var(--mono);font-size:10.5px;color:rgba(255,255,255,.75)}
+.badge a{color:rgba(255,255,255,.85)}.badge a:hover{color:#fff}
+@media (max-width:640px){.badge{position:static;margin:14px 32px 0;width:fit-content}}
+header.hero{max-width:1080px;margin:0 auto;padding:64px 32px 48px;border-bottom:1px solid var(--line)}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);display:flex;align-items:center;gap:10px;margin-bottom:20px}
+.eyebrow::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--signal)}
+h1{font-size:44px;font-weight:700;letter-spacing:-.02em;line-height:1.12;max-width:780px}
+h1 em{font-style:normal;color:var(--signal)}
+.sub{margin-top:18px;font-size:18px;color:var(--soft);max-width:640px}
+.meta{display:flex;gap:28px;margin-top:32px;flex-wrap:wrap}
+.meta div{font-family:var(--mono);font-size:12px;color:var(--faint)}
+.meta b{color:var(--ink);font-weight:600;display:block;font-size:14px;margin-top:2px}
+.layout{max-width:1080px;margin:0 auto;display:grid;grid-template-columns:200px 1fr;gap:56px;padding:0 32px}
+nav.toc{position:sticky;top:32px;align-self:start;padding-top:48px;font-family:var(--mono);font-size:12px}
+nav.toc a{display:block;color:var(--faint);padding:6px 0 6px 12px;border-left:2px solid transparent;margin-left:-13px}
+nav.toc a:hover,nav.toc a.active{color:var(--ink);border-left-color:var(--signal);text-decoration:none}
+main{padding:48px 0 80px;min-width:0}
+section.step{padding:40px 0;border-bottom:1px solid var(--line)}
+section.step:first-child{padding-top:0}
+.num{font-family:var(--mono);font-size:13px;color:var(--signal);font-weight:600;margin-bottom:8px;display:block}
+h2{font-size:26px;font-weight:700;letter-spacing:-.01em;margin-bottom:18px}
+h3{font-size:16px;font-weight:600;margin:28px 0 12px}
+p{margin-bottom:14px;max-width:680px}
+p.lead{font-size:17px;color:var(--soft)}
+ul,ol{margin:0 0 16px;padding:0;max-width:680px}
+li{list-style:none;padding-left:20px;position:relative;margin-bottom:8px;font-size:15px}
+li::before{content:'—';position:absolute;left:0;color:var(--faint)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin:20px 0}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin:20px 0}
+.card{background:var(--raised);border:1px solid var(--line);padding:18px 20px}
+.card h4{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);font-weight:600;margin-bottom:10px}
+.card p{font-size:14px;margin:0}.card ul{margin:0}.card li{font-size:13px}
+.metric{border-left:2px solid var(--signal);padding:4px 0 4px 16px}
+.metric .n{font-family:var(--mono);font-size:28px;font-weight:600;display:block;line-height:1.1}
+.metric .l{font-size:12px;color:var(--faint);margin-top:2px}
+.insight{border-left:2px solid;padding:10px 16px;margin:12px 0;font-size:14px;line-height:1.65;max-width:680px}
+.amber{border-color:#B07D2B;background:#FBF5E8;color:#5A3D0A}
+.green{border-color:#3B6D11;background:#EEF7E8;color:#1E3B08}
+pre{font-family:var(--mono);font-size:12.5px;line-height:1.8;background:var(--code);color:#E9E7DF;padding:20px 22px;overflow-x:auto;margin:16px 0;border-radius:2px}
+.hl{color:var(--signal)}.dim{color:#8A887F}
+code.i{font-family:var(--mono);font-size:13px;background:var(--sig-soft);color:var(--sig-deep);padding:1px 6px;border-radius:2px}
+.tw{overflow-x:auto;max-width:760px}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;min-width:520px}
+th{text-align:left;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);font-weight:600;padding:8px 12px;border-bottom:1px solid var(--strong)}
+td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top;color:var(--soft)}
+td:first-child{color:var(--ink);font-weight:500}
+.dive{border:1px solid var(--line);margin:24px 0}
+.dh{background:var(--ink);color:var(--paper);padding:12px 18px;font-family:var(--mono);font-size:13px;font-weight:500;display:flex;gap:10px;align-items:center}
+.dh .tag{background:var(--signal);color:#fff;font-size:10px;padding:2px 7px}
+.db{padding:20px 22px}.db p{font-size:14px}
+.dl{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin:18px 0 6px}
+.fail{color:#C24444}.fix{color:#4C8A1A}
+.arch{background:var(--code);padding:24px;overflow-x:auto;margin:20px 0}.arch pre{background:transparent;padding:0;margin:0}
+.comp{border:1px solid var(--line);margin:16px 0}
+.ci{padding:14px 16px;border-bottom:1px solid var(--line)}.ci:last-child{border:none}
+.cn{font-weight:600;font-size:14px;margin-bottom:4px}.cw{font-size:13px;color:var(--soft);line-height:1.6}
+.q{font-size:13px;padding:9px 14px;background:var(--raised);border:1px solid var(--line);margin:6px 0;color:var(--soft)}
+.q::before{content:"? ";color:var(--faint);font-family:var(--mono)}
+.cheat{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);margin:20px 0}
+.cc{background:var(--raised);padding:16px 18px}
+.cc h4{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--signal);margin-bottom:6px}
+.cc p{font-size:13px;margin:0;color:var(--soft)}
+footer{border-top:1px solid var(--line);padding:40px 32px 60px;max-width:1080px;margin:0 auto;font-family:var(--mono);font-size:12px;color:var(--faint);display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+@media (max-width:840px){.layout{grid-template-columns:1fr;gap:0}nav.toc{position:static;display:flex;overflow-x:auto;gap:4px;padding:16px 0;border-bottom:1px solid var(--line);white-space:nowrap}nav.toc a{border-left:none;border-bottom:2px solid transparent;margin:0;padding:6px 10px}nav.toc a.active{border-bottom-color:var(--signal)}h1{font-size:32px}.grid2,.grid3,.cheat{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="badge"><b>Samprita Koley</b><span><a href="mailto:sampritakoley01@gmail.com">sampritakoley01@gmail.com</a> · <a href="https://www.linkedin.com/in/sampritakoley/" target="_blank" rel="noopener">LinkedIn</a></span></div>
+
+<header class="hero">
+  <div class="eyebrow">System Design Case Study</div>
+  <h1>Designing an E-commerce System when <em>a flash sale</em> hits 10× normal traffic.</h1>
+  <p class="sub">A complete high-level design walkthrough, Flipkart style: requirements, estimation, architecture, data model, and three deep dives into the hardest problems: search, inventory without overselling, and checkout.</p>
+  <div class="meta">
+    <div>SCOPE<b>Browse · Search · Cart · Order · Pay</b></div>
+    <div>FORMAT<b>8-step HLD walkthrough</b></div>
+    <div>FOCUS<b>Inventory consistency &amp; read scale</b></div>
+  </div>
+</header>
+
+<div class="layout">
+<nav class="toc" id="toc">
+  <a href="#s1">01 · Problem</a><a href="#s2">02 · Requirements</a><a href="#s3">03 · Estimation</a><a href="#s4">04 · Architecture</a><a href="#s5">05 · Database</a><a href="#s6">06 · Deep Dives</a><a href="#s7">07 · Tradeoffs</a><a href="#s8">08 · Cheat Sheet</a>
+</nav>
+<main>
+
+<section class="step" id="s1">
+  <span class="num">01 / Understanding the problem</span>
+  <h2>What is this system, really?</h2>
+  <p class="lead">An e-commerce platform lets millions of shoppers find products from many sellers, pay safely and get orders delivered. It is a read-heavy catalog on one side and a strictly consistent order and inventory engine on the other.</p>
+  <p>The core tension: 99% of traffic is browsing and search, which can be stale and cached; but the 1% that touches stock and money must never be wrong.</p>
+  <h3>Core features in scope</h3>
+  <div class="grid2">
+    <div class="card"><h4>Catalog &amp; search</h4><p>Browse categories, search by keyword, filter and sort across 100M+ listings.</p></div>
+    <div class="card"><h4>Cart &amp; checkout</h4><p>Add items, apply offers, pick address and payment method, place the order.</p></div>
+    <div class="card"><h4>Inventory</h4><p>Track stock per SKU per warehouse; reserve on checkout, never oversell.</p></div>
+    <div class="card"><h4>Orders &amp; delivery</h4><p>Payment, order lifecycle, shipping updates, returns and refunds.</p></div>
+  </div>
+  <h3>What makes this hard at scale</h3>
+  <ul>
+    <li><strong>Read firehose.</strong> Product pages and search dominate traffic and must be fast everywhere.</li>
+    <li><strong>Overselling.</strong> Thousands of buyers racing for the last 100 units of a deal.</li>
+    <li><strong>Distributed transaction.</strong> Order, inventory and payment are separate services that must agree.</li>
+    <li><strong>Flash sales.</strong> Big Billion Days style events spike traffic 10× in seconds on a few hot SKUs.</li>
+    <li><strong>Search relevance.</strong> Typos, synonyms, filters and ranking in tens of milliseconds.</li>
+  </ul>
+</section>
+
+<section class="step" id="s2">
+  <span class="num">02 / Requirements</span>
+  <h2>Functional vs. non-functional requirements</h2>
+  <p class="lead">Non-functional requirements drive the architecture, so they come first.</p>
+  <div class="grid2">
+    <div class="card"><h4>Functional</h4><ul>
+      <li>Browse and view product details</li>
+      <li>Search with filters, sort and autocomplete</li>
+      <li>Cart and wishlist</li>
+      <li>Place order, pay, cancel, return</li>
+      <li>Seller catalog and stock management</li>
+      <li>Order tracking and notifications</li>
+      <li>Coupons and dynamic pricing</li>
+      <li>Reviews and ratings</li>
+    </ul></div>
+    <div class="card"><h4>Non-functional</h4><ul>
+      <li>100M DAU, 10M orders/day, 10× sale peaks</li>
+      <li>Product page and search p99 &lt; 200 ms</li>
+      <li>99.99% availability for browse and checkout</li>
+      <li>Never oversell (strong consistency on stock)</li>
+      <li>Catalog and search can be eventually consistent</li>
+      <li>Payments exactly-once, orders durable</li>
+      <li>Graceful degradation under overload</li>
+      <li>Scales horizontally</li>
+    </ul></div>
+  </div>
+  <h3>Clarifying questions</h3>
+  <div class="q">Single seller (Amazon retail) or multi-seller marketplace? This changes catalog and inventory ownership.</div>
+  <div class="q">Do we manage warehouses and delivery, or only the shopping side?</div>
+  <div class="q">Are flash sales and limited-stock deals in scope?</div>
+  <div class="q">Which payment methods: cards, UPI, wallet, COD? COD needs post-delivery reconciliation.</div>
+  <div class="q">How fresh must prices and stock be on the product page versus at checkout?</div>
+</section>
+
+<section class="step" id="s3">
+  <span class="num">03 / Estimation</span>
+  <h2>Back-of-envelope math</h2>
+  <p class="lead">Order-of-magnitude accuracy, with every assumption stated.</p>
+  <div class="grid3">
+    <div class="metric"><span class="n">~100K/s</span><span class="l">Peak page reads</span></div>
+    <div class="metric"><span class="n">~30K/s</span><span class="l">Peak search QPS</span></div>
+    <div class="metric"><span class="n">~10K/s</span><span class="l">Peak orders (sale)</span></div>
+  </div>
+  <h3>Assumptions</h3>
+<pre>DAU                  = 100M, ~30 page views each
+Orders per day       = 10M (average ~115/sec, sale peak ~10K/sec)
+Catalog              = 100M SKUs, ~5 KB metadata each
+Order record         = ~3 KB
+Read : write ratio   = ~100 : 1</pre>
+  <h3>QPS</h3>
+<pre>Page views: 100M × 30 / 86,400 = ~35K/sec avg → <span class="hl">~100K/sec peak</span>
+Search:     ~30% of views         → <span class="hl">~30K/sec peak</span>
+Orders:     10M / 86,400          = ~115/sec avg → <span class="hl">~10K/sec in a flash sale</span>
+
+<span class="dim">Reads dominate, so cache aggressively (CDN, Redis).
+Writes are few but must be correct, so keep them in transactional stores.</span></pre>
+  <h3>Storage</h3>
+<pre>Catalog:  100M × 5 KB      = <span class="hl">~500 GB</span> (plus images on object store + CDN)
+Orders:   10M/day × 3 KB   = 30 GB/day ≈ <span class="hl">~11 TB/year</span>
+Inventory: 100M × ~50 B    = <span class="hl">~5 GB</span>, fits in memory
+Search index: ~1-2× catalog = ~1 TB across shards</pre>
+  <h3>Bandwidth</h3>
+<pre>Mostly images: 100K pages/s × ~500 KB = ~50 GB/s → served by CDN, not origin.
+
+<span class="dim">The constraint is read QPS and hot-key contention on stock,
+not raw storage.</span></pre>
+</section>
+
+<section class="step" id="s4">
+  <span class="num">04 / High-level design</span>
+  <h2>Architecture</h2>
+  <p class="lead">Every box exists because of a number from Step 3.</p>
+  <div class="arch"><pre>
+ WEB / MOBILE APP
+        │
+   [ CDN ]  (images, static, cached pages)
+        │
+ [ API Gateway / LB ]  auth · rate limit
+        │
+ ├─► [ Catalog Service ] ──► [ Product DB ] ──► [ Redis cache ]
+ ├─► [ Search Service ]  ──► [ Elasticsearch ]
+ ├─► [ Cart Service ]    ──► [ Redis ]
+ ├─► [ Order Service ]   ──► [ Orders DB ]
+ │         │
+ │         ├─► [ Inventory Service ] ──► [ Inventory DB + Redis ]
+ │         ├─► [ Payment Service ]   ──► [ Payment gateway ]
+ │         └─► [ Pricing / Offers ]
+ │
+ └─► [ Kafka ] ──► Search indexer · Notifications · Shipping · Analytics
+
+<span class="dim">Catalog changes flow through Kafka to the search index asynchronously</span></pre></div>
+  <h3>Component rationale</h3>
+  <div class="comp">
+    <div class="ci"><div class="cn">CDN + cache</div><div class="cw">Serves images and hot product pages from the edge. Without it, 100K reads/sec would hit origin.</div></div>
+    <div class="ci"><div class="cn">Catalog service</div><div class="cw">Source of truth for product data, read-heavy. Cache in Redis with a short TTL and invalidate on seller updates.</div></div>
+    <div class="ci"><div class="cn">Search service + Elasticsearch</div><div class="cw">Inverted index with filters, facets and ranking. Rebuilt incrementally from catalog change events.</div></div>
+    <div class="ci"><div class="cn">Cart service</div><div class="cw">Carts are temporary and per-user, so Redis with a TTL (backed by a DB for logged-in users) is enough.</div></div>
+    <div class="ci"><div class="cn">Inventory service</div><div class="cw">Owns stock counts and reservations. The only place that needs strong consistency under heavy contention.</div></div>
+    <div class="ci"><div class="cn">Order + Payment services</div><div class="cw">Order service runs the state machine and coordinates a saga; Payment service talks to gateways idempotently.</div></div>
+    <div class="ci"><div class="cn">Kafka</div><div class="cw">Decouples writes from search indexing, notifications, shipping and analytics, and absorbs spikes.</div></div>
+  </div>
+  <h3>End-to-end flow — "user places an order"</h3>
+  <ol>
+    <li>User opens a product: CDN or Redis serves the page; the price and stock shown are cached and may be slightly stale.</li>
+    <li>User adds to cart; the cart lives in Redis. Prices are re-validated at checkout.</li>
+    <li>On checkout, Order Service creates an order in <code class="i">PENDING</code> with an idempotency key.</li>
+    <li>Inventory Service reserves stock atomically with a 10-minute hold (<code class="i">RESERVED</code>). If it fails, the order is rejected.</li>
+    <li>Payment Service charges the user. On success the order moves to <code class="i">CONFIRMED</code> and the reservation becomes a permanent deduction.</li>
+    <li>On payment failure or timeout, the reservation is released and the order moves to <code class="i">CANCELLED</code>.</li>
+    <li>Kafka events trigger notifications, shipping and search/stock refresh; the order proceeds through <code class="i">SHIPPED</code> to <code class="i">DELIVERED</code>.</li>
+  </ol>
+</section>
+
+<section class="step" id="s5">
+  <span class="num">05 / Database design</span>
+  <h2>Storage layer</h2>
+  <p class="lead">Different data, different access patterns, different stores.</p>
+  <div class="tw"><table>
+    <tr><th>Data</th><th>Store</th><th>Why</th></tr>
+    <tr><td>Product catalog</td><td>MongoDB / DynamoDB + Redis</td><td>Flexible attributes per category, read-heavy</td></tr>
+    <tr><td>Search index</td><td>Elasticsearch</td><td>Full-text, facets, ranking</td></tr>
+    <tr><td>Inventory</td><td>MySQL/Postgres + Redis</td><td>Atomic counters, durable truth</td></tr>
+    <tr><td>Orders, payments</td><td>MySQL/Postgres (sharded)</td><td>ACID, state machine, ledger</td></tr>
+    <tr><td>Carts, sessions</td><td>Redis</td><td>Ephemeral, fast, TTL</td></tr>
+    <tr><td>Events, clickstream</td><td>Kafka → data lake</td><td>Analytics, recommendations</td></tr>
+  </table></div>
+  <h3>Core tables and keys</h3>
+<pre>-- SQL (orders)
+CREATE TABLE orders (
+  order_id    UUID PRIMARY KEY,
+  user_id     BIGINT NOT NULL,
+  status      TEXT NOT NULL,  -- PENDING | CONFIRMED | SHIPPED | DELIVERED | CANCELLED
+  total       NUMERIC(12,2),
+  idem_key    TEXT UNIQUE,    -- prevents duplicate orders on retry
+  created_at  TIMESTAMP DEFAULT now()
+);
+CREATE TABLE inventory (
+  sku_id BIGINT, warehouse_id INT, available INT CHECK (available &gt;= 0),
+  reserved INT, PRIMARY KEY (sku_id, warehouse_id)
+);
+
+-- Redis
+Key: stock:{sku}        Value: integer available
+Key: cart:{user}        Value: HASH { sku: qty }   TTL 30d
+Key: reserve:{order}    Value: { sku: qty }        TTL 10m</pre>
+  <h3>Sharding strategy</h3>
+  <ul>
+    <li><strong>Catalog</strong> — shard by <code class="i">product_id</code>; replicate and cache for reads.</li>
+    <li><strong>Orders</strong> — shard by <code class="i">user_id</code> so "my orders" is a single-shard query.</li>
+    <li><strong>Inventory</strong> — shard by <code class="i">sku_id</code>; hot SKUs get split into sub-counters (see deep dive 2).</li>
+    <li><strong>Search</strong> — Elasticsearch shards with replicas; scale replicas for read QPS.</li>
+  </ul>
+</section>
+
+<section class="step" id="s6">
+  <span class="num">06 / Deep dives</span>
+  <h2>Deep dive on 3 critical components</h2>
+  <p class="lead">For each: the problem, the naive solution, why it fails, and the real solution. Volunteer these before the interviewer asks.</p>
+
+  <div class="dive"><div class="dh"><span class="tag">01</span> Search — relevant results over 100M products in tens of ms</div><div class="db">
+    <p><strong>The problem:</strong> Keyword search with typos, filters and sorting, 30K queries/sec at peak.</p>
+    <div class="dl fail">Naive solution — SQL LIKE query</div>
+<pre>SELECT * FROM products WHERE title LIKE '%running shoes%' AND price &lt; 3000</pre>
+    <p><strong>Why it fails:</strong> A leading wildcard cannot use an index, so it scans every row. There is no relevance ranking, typo tolerance or facet counts.</p>
+    <div class="dl fix">Real solution — inverted index in Elasticsearch, fed by events</div>
+<pre>1. Each product change → Kafka → indexer → Elasticsearch.
+   Search is eventually consistent (seconds of lag is fine).
+
+2. Inverted index: term → list of product ids. Queries intersect
+   postings lists, filters use cached bitsets.
+
+3. Rank by text relevance (BM25) + popularity, rating, conversion,
+   in-stock and seller quality. Fuzzy matching handles typos.
+
+4. Autocomplete from a prefix index (edge n-grams or a trie)
+   of popular queries, cached in Redis.
+
+5. Cache top queries; scatter-gather across shards, merge top-K.
+
+<span class="dim">Never show stale stock as authoritative: search can say "in stock",
+but the checkout reservation is the real decision.</span></pre>
+    <div class="insight green">Search is a derived read model. Keep the DB as truth, rebuild the index from events, and accept seconds of staleness for speed.</div>
+  </div></div>
+
+  <div class="dive"><div class="dh"><span class="tag">02</span> Inventory — never oversell, even in a flash sale</div><div class="db">
+    <p><strong>The problem:</strong> 50,000 users try to buy 1,000 units of a deal phone at the same instant.</p>
+    <div class="dl fail">Naive solution — read stock, then write</div>
+<pre>stock = SELECT available FROM inventory WHERE sku=?;
+if stock &gt; 0: UPDATE inventory SET available = stock - 1 WHERE sku=?</pre>
+    <p><strong>Why it fails:</strong> Check-then-act is a race: many requests see stock = 1 and all succeed. Row locks on one hot SKU also serialize everything and collapse throughput.</p>
+    <div class="dl fix">Real solution — atomic reserve, hold with TTL, shard the hot counter</div>
+<pre>1. Atomic conditional decrement (no read-then-write):
+     UPDATE inventory SET available = available - :q, reserved = reserved + :q
+     WHERE sku_id = ? AND available &gt;= :q      -- 0 rows → out of stock
+
+2. Hot SKUs: do it in Redis with a Lua script / DECRBY (single-threaded,
+   atomic, 100K+ ops/sec), then persist to the DB asynchronously.
+
+3. Split one counter into N sub-counters (stock:{sku}:0..N-1) so
+   load spreads across keys and nodes; retry the next on empty.
+
+4. Reservation has a TTL (about 10 min). Payment success → commit.
+   Failure or expiry → release stock back.
+
+5. Flash sale shield: queue or token-gate users, rate limit per user,
+   return "sold out" fast once the counter hits 0.
+
+<span class="dim">The DB constraint available &gt;= 0 is the final safety net
+even if Redis and the DB drift.</span></pre>
+    <div class="insight amber">Strong consistency applies to stock only. Browse, search and cart can be stale; the atomic reservation at checkout is the single point of truth.</div>
+  </div></div>
+
+  <div class="dive"><div class="dh"><span class="tag">03</span> Checkout — order, stock and payment must agree</div><div class="db">
+    <p><strong>The problem:</strong> Order, Inventory and Payment are separate services. Any step can fail or time out, and retries must not double-charge or double-reserve.</p>
+    <div class="dl fail">Naive solution — one distributed transaction (2PC)</div>
+<pre>BEGIN; reserve stock; charge card; create order; COMMIT;  -- across 3 services</pre>
+    <p><strong>Why it fails:</strong> Two-phase commit holds locks across services and an external payment gateway cannot take part. One slow dependency blocks everyone, and a coordinator crash leaves state stuck.</p>
+    <div class="dl fix">Real solution — saga with compensations and idempotency</div>
+<pre>1. Order Service is the orchestrator, persisting each step:
+     PENDING → STOCK_RESERVED → PAYMENT_DONE → CONFIRMED
+
+2. Failure at any step runs compensations:
+     payment failed → release reservation → CANCELLED
+     refund / release are themselves retried until they succeed.
+
+3. Idempotency key per order on every call (order, reserve, charge):
+   a retry returns the original result, never a second effect.
+
+4. Payments: unique constraint on (order_id), async webhook from the
+   gateway confirms status; a reconciliation job fixes stuck orders.
+
+5. Use the outbox pattern: write the DB change and the Kafka event in
+   one local transaction so events are never lost.
+
+<span class="dim">Timeouts everywhere + a sweeper for expired PENDING orders
+guarantees nothing stays locked forever.</span></pre>
+    <div class="insight green">Replace one big transaction with a chain of small local ones plus compensations. Eventual consistency, but always a clear final state.</div>
+  </div></div>
+</section>
+
+<section class="step" id="s7">
+  <span class="num">07 / Tradeoffs &amp; alternatives</span>
+  <h2>What we did NOT choose and why</h2>
+  <h3>Rejected alternatives</h3>
+  <div class="tw"><table>
+    <tr><th>Alternative</th><th>Why rejected</th></tr>
+    <tr><td>SQL LIKE for search</td><td>Full scans, no ranking, no typo tolerance.</td></tr>
+    <tr><td>2PC across services</td><td>Blocks on the slowest participant; gateways cannot join it.</td></tr>
+    <tr><td>Check-then-update stock</td><td>Race condition causes overselling.</td></tr>
+    <tr><td>One DB for everything</td><td>Catalog reads would starve order writes; scaling needs differ.</td></tr>
+    <tr><td>Strong consistency for catalog and search</td><td>Costly with no user benefit; seconds of lag is fine.</td></tr>
+    <tr><td>Deducting stock only after payment</td><td>Allows paying for items that are already gone; reserve first.</td></tr>
+  </table></div>
+  <h3>What breaks at 10× scale and how we fix it</h3>
+  <div class="dive" style="margin-top:16px"><div class="db">
+    <div class="dl fail">Problem — Hot product during a flash sale</div>
+    <p>One SKU gets thousands of requests per second, overloading a single cache key and DB row.</p>
+    <div class="dl fix">Fix</div>
+    <p>Pre-warm caches, serve the page from the CDN, shard the stock counter, use a virtual waiting room, and shed excess load early.</p>
+  </div></div>
+  <div class="dive"><div class="db">
+    <div class="dl fail">Problem — Payment gateway slowdown</div>
+    <p>Timeouts leave orders pending with stock held, and users retry and risk double charges.</p>
+    <div class="dl fix">Fix</div>
+    <p>Idempotency keys, circuit breakers, multiple gateways with fallback, short reservation TTLs, and reconciliation jobs.</p>
+  </div></div>
+  <div class="dive"><div class="db">
+    <div class="dl fail">Problem — Search index lag or cluster failure</div>
+    <p>Updates take minutes to appear, or search goes down while browse still works.</p>
+    <div class="dl fix">Fix</div>
+    <p>Monitor consumer lag, replicate shards, fall back to category browse and cached results, and re-index from Kafka if needed.</p>
+  </div></div>
+  <div class="dive"><div class="db">
+    <div class="dl fail">Problem — Regional outage</div>
+    <p>A data center failure blocks browsing and checkout for a region.</p>
+    <div class="dl fix">Fix</div>
+    <p>Multi-region deployment, replicated orders and inventory, stateless services behind global load balancing, and degrade to read-only browse if checkout is impaired.</p>
+  </div></div>
+</section>
+
+<section class="step" id="s8">
+  <span class="num">08 / Summary</span>
+  <h2>Cheat sheet</h2>
+  <p class="lead">What to remember before walking into the room.</p>
+  <div class="cheat">
+    <div class="cc"><h4>Key numbers</h4><p>100M DAU · ~100K reads/sec · ~30K search/sec · 10M orders/day · ~10K orders/sec in sales</p></div>
+    <div class="cc"><h4>Key datastores</h4><p>Product DB + Redis · Elasticsearch · SQL for orders and inventory · Kafka · CDN</p></div>
+    <div class="cc"><h4>Search strategy</h4><p>Inverted index fed by Kafka events; BM25 + popularity ranking; cached autocomplete.</p></div>
+    <div class="cc"><h4>Inventory strategy</h4><p>Atomic conditional decrement, TTL reservation, sharded hot counters, DB constraint as backstop.</p></div>
+    <div class="cc"><h4>Order state machine</h4><p>PENDING → CONFIRMED → SHIPPED → DELIVERED, or CANCELLED with compensations.</p></div>
+    <div class="cc"><h4>Key tradeoffs</h4><p>Consistency for stock vs. availability for browse. Reserve early vs. fairness. Speed vs. search freshness.</p></div>
+    <div class="cc"><h4>Hardest part</h4><p>Selling the last unit exactly once under massive concurrency, across services that can each fail.</p></div>
+    <div class="cc"><h4>Patterns</h4><p>CQRS read models · saga · outbox · idempotency keys · cache-aside · load shedding</p></div>
+    <div class="cc"><h4>Sharding keys</h4><p>Catalog → product_id · Orders → user_id · Inventory → sku_id · Kafka → order_id / sku_id</p></div>
+    <div class="cc"><h4>Interview time map</h4><p>0–3: clarify · 3–7: requirements + estimation · 7–16: HLD + flow · 16–23: data model · 23–29: deep dives · 29–30: tradeoffs</p></div>
+  </div>
+  <h3>Consistency choices — at a glance</h3>
+  <div class="tw"><table>
+    <tr><th>Data</th><th>Consistency</th><th>Reason</th></tr>
+    <tr><td>Catalog, search</td><td>Eventual</td><td>Stale by seconds is acceptable</td></tr>
+    <tr><td>Cart</td><td>Eventual</td><td>Revalidated at checkout</td></tr>
+    <tr><td>Inventory reservation</td><td>Strong</td><td>Prevents overselling</td></tr>
+    <tr><td>Orders, payments</td><td>Strong, idempotent</td><td>Money and legal records</td></tr>
+  </table></div>
+</section>
+
+</main>
+</div>
+
+<footer><span>System Design Case Study — E-commerce System · Flipkart / Amazon style</span><span>Written as a high-level design walkthrough</span></footer>
+
+<script>
+const links=document.querySelectorAll('nav.toc a');
+const obs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){const id=e.target.id;links.forEach(l=>l.classList.toggle('active',l.getAttribute('href')==='#'+id))}})},{rootMargin:'-20% 0px -70% 0px'});
+document.querySelectorAll('section.step').forEach(s=>obs.observe(s));
+</script>
+</body>
+</html>
