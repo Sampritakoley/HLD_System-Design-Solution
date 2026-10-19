@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Designing a Flight &amp; Hotel Booking System (Skyscanner-style) — System Design Case Study</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#FAF8F4;--raised:#FFFFFF;--ink:#16181C;--soft:#52524E;--faint:#8A887F;--line:#DEDAD0;--strong:#C7C2B5;--signal:#D85A30;--sig-soft:#FAECE7;--sig-deep:#4A1B0C;--code:#16181C;--mono:'JetBrains Mono',monospace;--sans:'Inter',system-ui,sans-serif;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--paper:#14151A;--raised:#1D1F25;--ink:#ECEAE3;--soft:#B5B3AA;--line:#2E3038;--strong:#43454F;--sig-soft:#3A1E14;--sig-deep:#F5B9A3}}
+:root[data-theme="dark"]{--paper:#14151A;--raised:#1D1F25;--ink:#ECEAE3;--soft:#B5B3AA;--line:#2E3038;--strong:#43454F;--sig-soft:#3A1E14;--sig-deep:#F5B9A3}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased}
+a{color:var(--signal);text-decoration:none}a:hover{text-decoration:underline}
+.badge{position:fixed;top:calc(18px + env(safe-area-inset-top,0px));right:24px;z-index:50;background:var(--signal);padding:8px 16px;border-radius:999px;box-shadow:0 2px 14px rgba(216,90,48,.35);line-height:1.3;display:flex;flex-direction:column}
+.badge b{font-size:12.5px;font-weight:600;color:#fff}
+.badge span{font-family:var(--mono);font-size:10.5px;color:rgba(255,255,255,.75)}
+.badge a{color:rgba(255,255,255,.85)}.badge a:hover{color:#fff}
+@media (max-width:640px){.badge{position:static;margin:14px 32px 0;width:fit-content}}
+header.hero{max-width:1080px;margin:0 auto;padding:64px 32px 48px;border-bottom:1px solid var(--line)}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);display:flex;align-items:center;gap:10px;margin-bottom:20px}
+.eyebrow::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--signal)}
+h1{font-size:44px;font-weight:700;letter-spacing:-.02em;line-height:1.12;max-width:780px}
+h1 em{font-style:normal;color:var(--signal)}
+.sub{margin-top:18px;font-size:18px;color:var(--soft);max-width:640px}
+.meta{display:flex;gap:28px;margin-top:32px;flex-wrap:wrap}
+.meta div{font-family:var(--mono);font-size:12px;color:var(--faint)}
+.meta b{color:var(--ink);font-weight:600;display:block;font-size:14px;margin-top:2px}
+.layout{max-width:1080px;margin:0 auto;display:grid;grid-template-columns:200px 1fr;gap:56px;padding:0 32px}
+nav.toc{position:sticky;top:32px;align-self:start;padding-top:48px;font-family:var(--mono);font-size:12px}
+nav.toc a{display:block;color:var(--faint);padding:6px 0 6px 12px;border-left:2px solid transparent;margin-left:-13px}
+nav.toc a:hover,nav.toc a.active{color:var(--ink);border-left-color:var(--signal);text-decoration:none}
+main{padding:48px 0 80px;min-width:0}
+section.step{padding:40px 0;border-bottom:1px solid var(--line)}
+section.step:first-child{padding-top:0}
+.num{font-family:var(--mono);font-size:13px;color:var(--signal);font-weight:600;margin-bottom:8px;display:block}
+h2{font-size:26px;font-weight:700;letter-spacing:-.01em;margin-bottom:18px}
+h3{font-size:16px;font-weight:600;margin:28px 0 12px}
+p{margin-bottom:14px;max-width:680px}
+p.lead{font-size:17px;color:var(--soft)}
+ul,ol{margin:0 0 16px;padding:0;max-width:680px}
+li{list-style:none;padding-left:20px;position:relative;margin-bottom:8px;font-size:15px}
+li::before{content:'—';position:absolute;left:0;color:var(--faint)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin:20px 0}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin:20px 0}
+.card{background:var(--raised);border:1px solid var(--line);padding:18px 20px}
+.card h4{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);font-weight:600;margin-bottom:10px}
+.card p{font-size:14px;margin:0}.card ul{margin:0}.card li{font-size:13px}
+.metric{border-left:2px solid var(--signal);padding:4px 0 4px 16px}
+.metric .n{font-family:var(--mono);font-size:28px;font-weight:600;display:block;line-height:1.1}
+.metric .l{font-size:12px;color:var(--faint);margin-top:2px}
+.insight{border-left:2px solid;padding:10px 16px;margin:12px 0;font-size:14px;line-height:1.65;max-width:680px}
+.amber{border-color:#B07D2B;background:#FBF5E8;color:#5A3D0A}
+.green{border-color:#3B6D11;background:#EEF7E8;color:#1E3B08}
+pre{font-family:var(--mono);font-size:12.5px;line-height:1.8;background:var(--code);color:#E9E7DF;padding:20px 22px;overflow-x:auto;margin:16px 0;border-radius:2px}
+.hl{color:var(--signal)}.dim{color:#8A887F}
+code.i{font-family:var(--mono);font-size:13px;background:var(--sig-soft);color:var(--sig-deep);padding:1px 6px;border-radius:2px}
+.tw{overflow-x:auto;max-width:760px}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;min-width:520px}
+th{text-align:left;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);font-weight:600;padding:8px 12px;border-bottom:1px solid var(--strong)}
+td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top;color:var(--soft)}
+td:first-child{color:var(--ink);font-weight:500}
+.dive{border:1px solid var(--line);margin:24px 0}
+.dh{background:var(--ink);color:var(--paper);padding:12px 18px;font-family:var(--mono);font-size:13px;font-weight:500;display:flex;gap:10px;align-items:center}
+.dh .tag{background:var(--signal);color:#fff;font-size:10px;padding:2px 7px}
+.db{padding:20px 22px}.db p{font-size:14px}
+.dl{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin:18px 0 6px}
+.fail{color:#C24444}.fix{color:#4C8A1A}
+.arch{background:var(--code);padding:24px;overflow-x:auto;margin:20px 0}.arch pre{background:transparent;padding:0;margin:0}
+.comp{border:1px solid var(--line);margin:16px 0}
+.ci{padding:14px 16px;border-bottom:1px solid var(--line)}.ci:last-child{border:none}
+.cn{font-weight:600;font-size:14px;margin-bottom:4px}.cw{font-size:13px;color:var(--soft);line-height:1.6}
+.q{font-size:13px;padding:9px 14px;background:var(--raised);border:1px solid var(--line);margin:6px 0;color:var(--soft)}
+.q::before{content:"? ";color:var(--faint);font-family:var(--mono)}
+.cheat{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);margin:20px 0}
+.cc{background:var(--raised);padding:16px 18px}
+.cc h4{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--signal);margin-bottom:6px}
+.cc p{font-size:13px;margin:0;color:var(--soft)}
+footer{border-top:1px solid var(--line);padding:40px 32px 60px;max-width:1080px;margin:0 auto;font-family:var(--mono);font-size:12px;color:var(--faint);display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+@media (max-width:840px){.layout{grid-template-columns:1fr;gap:0}nav.toc{position:static;display:flex;overflow-x:auto;gap:4px;padding:16px 0;border-bottom:1px solid var(--line);white-space:nowrap}nav.toc a{border-left:none;border-bottom:2px solid transparent;margin:0;padding:6px 10px}nav.toc a.active{border-bottom-color:var(--signal)}h1{font-size:32px}.grid2,.grid3,.cheat{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="badge"><b>Samprita Koley</b><span><a href="mailto:sampritakoley01@gmail.com">sampritakoley01@gmail.com</a> · <a href="https://www.linkedin.com/in/sampritakoley/" target="_blank" rel="noopener">LinkedIn</a></span></div>
+
+<header class="hero">
+  <div class="eyebrow">System Design Case Study</div>
+  <h1>Designing a Flight &amp; Hotel Booking System when every search needs <em>50 live prices</em>.</h1>
+  <p class="sub">A complete high-level design walkthrough, Skyscanner style: requirements, estimation, architecture, data model, and three deep dives into the hardest problems: search fan-out, price caching and freshness, and booking without double-selling.</p>
+  <div class="meta">
+    <div>SCOPE<b>Search · Compare · Book · Pay</b></div>
+    <div>FORMAT<b>8-step HLD walkthrough</b></div>
+    <div>FOCUS<b>Aggregation, caching &amp; inventory</b></div>
+  </div>
+</header>
+
+<div class="layout">
+<nav class="toc" id="toc">
+  <a href="#s1">01 · Problem</a><a href="#s2">02 · Requirements</a><a href="#s3">03 · Estimation</a><a href="#s4">04 · Architecture</a><a href="#s5">05 · Database</a><a href="#s6">06 · Deep Dives</a><a href="#s7">07 · Tradeoffs</a><a href="#s8">08 · Cheat Sheet</a>
+</nav>
+<main>
+
+<section class="step" id="s1">
+  <span class="num">01 / Understanding the problem</span>
+  <h2>What is this system, really?</h2>
+  <p class="lead">A travel platform lets people search flights and hotels across hundreds of airlines, hotel chains and agencies, compare prices in one place, and book. Most of the inventory is not ours: we are a live aggregator sitting in front of other people’s systems.</p>
+  <p>The core tension: users want fast results and accurate prices, but every price lives in a slow, rate-limited third-party system that changes constantly.</p>
+  <h3>Core features in scope</h3>
+  <div class="grid2">
+    <div class="card"><h4>Search</h4><p>Origin, destination, dates, passengers (or city, dates, guests) with filters and sorting.</p></div>
+    <div class="card"><h4>Price comparison</h4><p>Merge results from many providers, dedupe, rank by price, duration and quality.</p></div>
+    <div class="card"><h4>Booking</h4><p>Re-check price and availability, collect passenger details, pay, get confirmation.</p></div>
+    <div class="card"><h4>Trips &amp; alerts</h4><p>Itineraries, cancellations, price alerts and notifications.</p></div>
+  </div>
+  <h3>What makes this hard at scale</h3>
+  <ul>
+    <li><strong>Provider fan-out.</strong> One search triggers dozens of slow external calls with different formats and limits.</li>
+    <li><strong>Stale prices.</strong> Fares change in minutes; cached prices are fast but sometimes wrong.</li>
+    <li><strong>Double selling.</strong> The last seat or room must go to exactly one buyer.</li>
+    <li><strong>Search explosion.</strong> Routes × dates × passengers × cabins is an enormous space.</li>
+    <li><strong>Partial failure.</strong> Providers time out constantly; the page must still load.</li>
+  </ul>
+</section>
+
+<section class="step" id="s2">
+  <span class="num">02 / Requirements</span>
+  <h2>Functional vs. non-functional requirements</h2>
+  <p class="lead">Non-functional requirements drive the architecture, so they come first.</p>
+  <div class="grid2">
+    <div class="card"><h4>Functional</h4><ul>
+      <li>Search one-way, return and multi-city flights</li>
+      <li>Search hotels by city, map area or name</li>
+      <li>Filters: price, stops, airline, rating, amenities</li>
+      <li>View details and fare rules</li>
+      <li>Book with passenger and payment details</li>
+      <li>Cancel, modify, get e-ticket or voucher</li>
+      <li>Price alerts and notifications</li>
+      <li>Redirect to provider (meta) or book directly</li>
+    </ul></div>
+    <div class="card"><h4>Non-functional</h4><ul>
+      <li>50M DAU, ~250M searches/day, 10K/s peak</li>
+      <li>First results in &lt; 2 s; complete in &lt; 10 s</li>
+      <li>99.99% availability for search</li>
+      <li>Never double-book a seat or room</li>
+      <li>Search results can be eventually consistent</li>
+      <li>Payments and bookings exactly-once</li>
+      <li>Degrade gracefully when providers fail</li>
+      <li>Scales horizontally; respects provider rate limits</li>
+    </ul></div>
+  </div>
+  <h3>Clarifying questions</h3>
+  <div class="q">Pure metasearch (redirect out) or do we also sell and take payment?</div>
+  <div class="q">Which providers: airline direct APIs, GDS like Amadeus or Sabre, hotel aggregators?</div>
+  <div class="q">How fresh must prices be on the results page versus at checkout?</div>
+  <div class="q">Do we hold inventory ourselves, or only create bookings in provider systems?</div>
+  <div class="q">Flights only, hotels only, or bundles with one cart?</div>
+</section>
+
+<section class="step" id="s3">
+  <span class="num">03 / Estimation</span>
+  <h2>Back-of-envelope math</h2>
+  <p class="lead">Order-of-magnitude accuracy, with every assumption stated.</p>
+  <div class="grid3">
+    <div class="metric"><span class="n">~10K/s</span><span class="l">Peak searches</span></div>
+    <div class="metric"><span class="n">~100K/s</span><span class="l">Provider calls (after cache)</span></div>
+    <div class="metric"><span class="n">~100/s</span><span class="l">Peak bookings</span></div>
+  </div>
+  <h3>Assumptions</h3>
+<pre>DAU                  = 50M, ~5 searches each
+Bookings per day     = 1M (avg ~12/sec, peak ~100/sec)
+Providers per search = ~50 (airlines, GDS, OTAs, hotel suppliers)
+Cache hit rate       = ~80-90% for popular routes
+Search response      = ~50-200 KB of offers
+Booking record       = ~5 KB</pre>
+  <h3>QPS</h3>
+<pre>Searches: 50M × 5 / 86,400 = ~2.9K/sec avg → <span class="hl">~10K/sec peak</span>
+Fan-out without cache: 10K × 50 = <span class="hl">~500K provider calls/sec</span> (impossible)
+With ~80-90% cache hits:        <span class="hl">~50-100K calls/sec</span>
+Bookings: 1M / 86,400          = ~12/sec avg → <span class="hl">~100/sec peak</span>
+
+<span class="dim">The fan-out multiplies load by 50. Caching and rate-limit
+management matter more than raw compute.</span></pre>
+  <h3>Storage</h3>
+<pre>Fare cache: ~50K popular routes × 365 days × few cabins × ~2 KB
+          ≈ <span class="hl">~100 GB</span> in Redis, sharded
+Hotels:    ~2M properties, rates cached by property × date window
+Bookings:  1M/day × 5 KB = 5 GB/day ≈ <span class="hl">~2 TB/year</span>
+Search logs and clicks: large, go to Kafka → data lake</pre>
+  <h3>Bandwidth</h3>
+<pre>Responses: 10K/s × ~100 KB = ~1 GB/s peak → compress, paginate, stream
+<span class="dim">The constraint is outbound provider capacity and latency, not storage.</span></pre>
+</section>
+
+<section class="step" id="s4">
+  <span class="num">04 / High-level design</span>
+  <h2>Architecture</h2>
+  <p class="lead">Every box exists because of a number from Step 3.</p>
+  <div class="arch"><pre>
+ WEB / MOBILE APP
+        │   (results streamed via SSE / WebSocket)
+ [ CDN ] ── [ API Gateway / LB ]
+        │
+ ├─► [ Search Service ] ─► [ Search Orchestrator ]
+ │         │                     │  fan-out (parallel, timeouts)
+ │         │                     ├─► [ Provider Adapters ] ─► Airlines · GDS · Hotel suppliers
+ │         │                     └─► [ Fare Cache (Redis) ]
+ │         └─► [ Ranking / Dedupe ] ─► [ Hotel Index (Elasticsearch, geo) ]
+ │
+ ├─► [ Booking Service ] ─► [ Bookings DB ]
+ │         ├─► [ Price Re-check ] ─► Provider
+ │         ├─► [ Payment Service ] ─► Payment gateway
+ │         └─► [ Supplier Ticketing ] ─► Provider
+ │
+ └─► [ Kafka ] ─► Alerts · Notifications · Analytics · Cache warmers
+
+<span class="dim">Search is a fast read path; booking is a slow, careful write path</span></pre></div>
+  <h3>Component rationale</h3>
+  <div class="comp">
+    <div class="ci"><div class="cn">Search orchestrator</div><div class="cw">Scatter-gather across providers with per-provider timeouts and circuit breakers. Returns partial results as they arrive.</div></div>
+    <div class="ci"><div class="cn">Provider adapters</div><div class="cw">One adapter per supplier translates their API and rate limits into our common offer model. Isolates failures and format differences.</div></div>
+    <div class="ci"><div class="cn">Fare cache (Redis)</div><div class="cw">Stores recent prices keyed by route, date, cabin and passengers with short TTLs. Cuts provider calls by 80-90%.</div></div>
+    <div class="ci"><div class="cn">Ranking and dedupe</div><div class="cw">Merges the same flight offered by many sellers, then ranks by price, duration, stops and trust.</div></div>
+    <div class="ci"><div class="cn">Hotel index (Elasticsearch)</div><div class="cw">Hotel content is mostly static, so geo search, filters and facets run on an index; only rates are fetched live.</div></div>
+    <div class="ci"><div class="cn">Booking and payment services</div><div class="cw">Source of truth for bookings: a state machine with transactions, idempotency and compensations.</div></div>
+    <div class="ci"><div class="cn">Kafka</div><div class="cw">Feeds cache warmers, price alerts, notifications and analytics off the hot path.</div></div>
+  </div>
+  <h3>End-to-end flow — "user searches and books a flight"</h3>
+  <ol>
+    <li>User searches DEL → LHR; Search Service creates a <code class="i">search_id</code> and opens a streaming channel.</li>
+    <li>Orchestrator checks the fare cache; cache hits return instantly as first results.</li>
+    <li>For misses and stale entries, adapters call providers in parallel with ~3-8 s timeouts; results stream in as they arrive.</li>
+    <li>Offers are normalized, deduped and ranked; fresh prices are written back to the cache.</li>
+    <li>User picks an offer; Booking Service re-checks the live price and availability with the provider (<code class="i">PRICE_VERIFIED</code>).</li>
+    <li>Passenger details are collected; the seat is held at the supplier where supported, then payment is authorized (<code class="i">PAYMENT_AUTHORIZED</code>).</li>
+    <li>Supplier ticketing is called with an idempotency key; on success the booking is <code class="i">CONFIRMED</code> and the payment is captured.</li>
+    <li>On failure, the authorization is voided and the user is told; Kafka triggers the e-ticket and notifications.</li>
+  </ol>
+</section>
+
+<section class="step" id="s5">
+  <span class="num">05 / Database design</span>
+  <h2>Storage layer</h2>
+  <p class="lead">Different data, different access patterns, different stores.</p>
+  <div class="tw"><table>
+    <tr><th>Data</th><th>Store</th><th>Why</th></tr>
+    <tr><td>Fare and rate cache</td><td>Redis (TTL)</td><td>Hot, ephemeral, fast reads</td></tr>
+    <tr><td>Hotel content and geo</td><td>Elasticsearch</td><td>Geo queries, filters, facets</td></tr>
+    <tr><td>Airports, airlines, static data</td><td>SQL + in-memory</td><td>Small, rarely changing</td></tr>
+    <tr><td>Bookings, payments</td><td>PostgreSQL (sharded)</td><td>ACID, state machine, ledger</td></tr>
+    <tr><td>Searches, clicks, alerts</td><td>Kafka → data lake / Cassandra</td><td>High volume, analytics, ML</td></tr>
+  </table></div>
+  <h3>Core tables and keys</h3>
+<pre>-- PostgreSQL (bookings)
+CREATE TABLE bookings (
+  booking_id    UUID PRIMARY KEY,
+  user_id       BIGINT NOT NULL,
+  type          TEXT,          -- FLIGHT | HOTEL
+  status        TEXT NOT NULL, -- INITIATED | PRICE_VERIFIED | PAYMENT_AUTHORIZED | CONFIRMED | FAILED | CANCELLED
+  supplier      TEXT,
+  supplier_ref  TEXT,          -- PNR or hotel confirmation code
+  total_amount  NUMERIC(12,2), currency CHAR(3),
+  idem_key      TEXT UNIQUE,   -- prevents duplicate bookings on retry
+  created_at    TIMESTAMP DEFAULT now()
+);
+
+-- Redis
+Key: fare:{origin}:{dest}:{date}:{cabin}:{pax}  Value: compressed offers   TTL 5-30 min
+Key: hold:{booking_id}                           Value: supplier hold ref   TTL 10-15 min
+Key: ratelimit:{provider}                        Value: token bucket</pre>
+  <h3>Sharding strategy</h3>
+  <ul>
+    <li><strong>Fare cache</strong> — consistent hashing on the route + date key; hot routes get replicas.</li>
+    <li><strong>Bookings</strong> — shard by <code class="i">user_id</code> so “my trips” stays on one shard.</li>
+    <li><strong>Hotel index</strong> — shard by geography (region or geohash) for fast map queries.</li>
+    <li><strong>Kafka</strong> — partition by search_id or booking_id to keep order per entity.</li>
+  </ul>
+</section>
+
+<section class="step" id="s6">
+  <span class="num">06 / Deep dives</span>
+  <h2>Deep dive on 3 critical components</h2>
+  <p class="lead">For each: the problem, the naive solution, why it fails, and the real solution. Volunteer these before the interviewer asks.</p>
+
+  <div class="dive"><div class="dh"><span class="tag">01</span> Search fan-out — aggregate 50 slow providers into one fast page</div><div class="db">
+    <p><strong>The problem:</strong> A single search needs prices from dozens of providers, each with different latency, formats and failure rates, yet the user expects results in seconds.</p>
+    <div class="dl fail">Naive solution — call providers one by one and wait</div>
+<pre>for provider in providers: results += provider.search(query)   # sequential
+return results</pre>
+    <p><strong>Why it fails:</strong> Latency adds up (50 × 1 s = 50 s) and one hung provider blocks everything. Results only appear when the slowest has answered.</p>
+    <div class="dl fix">Real solution — parallel scatter-gather with timeouts, streaming results</div>
+<pre>1. Orchestrator fires all provider calls in parallel (async I/O).
+
+2. Each call has its own timeout and circuit breaker. A provider that
+   keeps failing is skipped for a cool-off window.
+
+3. Stream results to the client as they arrive (SSE / WebSocket):
+   cache hits first, then fast providers, then stragglers.
+   The UI re-sorts as the list grows.
+
+4. Normalize each response into one offer model, then dedupe:
+   same flight (carriers, times) from many sellers → one card with
+   several prices, keyed by a canonical itinerary hash.
+
+5. Per-provider token buckets respect rate limits; coalesce identical
+   in-flight searches so 1,000 users on DEL→LHR trigger one call.
+
+6. Cut off at a deadline (~8-10 s) and mark the search complete.
+
+<span class="dim">Hotels: fetch static content from our index, call suppliers
+only for live rates by property ids returned from geo search.</span></pre>
+    <div class="insight green">Never make the user wait for the slowest provider. Stream partial results, bound every call with a timeout, and deduplicate identical requests.</div>
+  </div></div>
+
+  <div class="dive"><div class="dh"><span class="tag">02</span> Price caching &amp; freshness — fast but not wrong</div><div class="db">
+    <p><strong>The problem:</strong> Live provider calls are slow and costly, but cached prices go stale and users hate clicking a $400 fare that turns into $480.</p>
+    <div class="dl fail">Naive solution — always live, or cache everything for hours</div>
+<pre>Option A: call every provider on every search
+Option B: cache results for 24 hours</pre>
+    <p><strong>Why it fails:</strong> A overloads providers and blows latency and cost budgets. B shows stale or sold-out fares and destroys trust.</p>
+    <div class="dl fix">Real solution — tiered TTL cache, background refresh, verify at checkout</div>
+<pre>1. Cache key: route + date + cabin + passengers. Value: offers + fetched_at.
+
+2. TTL by volatility: popular routes and near dates short (5 min),
+   far dates and quiet routes longer (30-60 min).
+
+3. Stale-while-revalidate: serve the cached value immediately, label
+   it "price may change", and refresh in the background.
+
+4. Cache warmers: Kafka search-volume stream pre-fetches the top
+   routes and dates before users ask.
+
+5. Learn from bookings: when a re-check at booking shows a different
+   price, evict that key and record the drift per provider.
+
+6. Always re-verify price and availability with the provider before
+   taking payment. Show "price changed" and let the user accept.
+
+<span class="dim">The cache is for discovery. Checkout is the source of truth.</span></pre>
+    <div class="insight amber">Staleness is a product tradeoff, not a bug. Be fast and slightly stale on search, and strict at the moment money moves.</div>
+  </div></div>
+
+  <div class="dive"><div class="dh"><span class="tag">03</span> Booking — exactly one booking, never a double sale</div><div class="db">
+    <p><strong>The problem:</strong> Booking touches our DB, a payment gateway and an external supplier. Any step can fail or time out, and two users may chase the last seat or room.</p>
+    <div class="dl fail">Naive solution — charge, then book, in one request</div>
+<pre>charge(card); supplier.book(); save(booking)   # no holds, no retry safety</pre>
+    <p><strong>Why it fails:</strong> If the supplier fails after the charge, the user paid with no ticket. A retry after a timeout can book twice. Two buyers can both see availability and both pay.</p>
+    <div class="dl fix">Real solution — hold, authorize, confirm, with a saga and idempotency</div>
+<pre>1. Re-check price, then place a supplier hold (a soft reserve) with a
+   short TTL. If the supplier has no holds, rely on step 3.
+
+2. Authorize payment first (reserve funds, do not capture).
+
+3. Ticketing call with an idempotency key (booking_id).
+   Success → capture payment → CONFIRMED.
+   Failure → void authorization → FAILED, release hold.
+
+4. Booking state machine in the DB with conditional updates:
+     UPDATE bookings SET status='CONFIRMED'
+     WHERE booking_id=? AND status='PAYMENT_AUTHORIZED'
+
+5. Timeouts mean unknown state: mark PENDING_VERIFICATION and let a
+   reconciliation job query the supplier by reference, then complete or
+   compensate.
+
+6. Own inventory (hotel contracts): atomic conditional decrement per
+   room-type per night, in one transaction across all nights:
+     UPDATE room_inventory SET available = available - 1
+     WHERE room_type=? AND night BETWEEN ? AND ? AND available &gt; 0
+
+<span class="dim">Authorize before ticketing: it is far easier to void an
+authorization than to refund a captured payment or cancel a ticket.</span></pre>
+    <div class="insight green">Never leave money and inventory out of sync. Use holds, idempotency keys and a state machine, and treat timeouts as “unknown” that reconciliation resolves.</div>
+  </div></div>
+</section>
+
+<section class="step" id="s7">
+  <span class="num">07 / Tradeoffs &amp; alternatives</span>
+  <h2>What we did NOT choose and why</h2>
+  <h3>Rejected alternatives</h3>
+  <div class="tw"><table>
+    <tr><th>Alternative</th><th>Why rejected</th></tr>
+    <tr><td>Sequential provider calls</td><td>Latency adds up; one slow supplier blocks the page.</td></tr>
+    <tr><td>Live calls on every search</td><td>Provider rate limits and cost; unacceptable latency.</td></tr>
+    <tr><td>Long-lived price cache</td><td>Stale fares erode trust and cause failed bookings.</td></tr>
+    <tr><td>Charge before confirming supplier</td><td>Risk of paid-but-unticketed customers and costly refunds.</td></tr>
+    <tr><td>2PC across us, payment and supplier</td><td>External systems cannot participate; use a saga.</td></tr>
+    <tr><td>Strong consistency for search</td><td>Needless cost; results are advisory until checkout.</td></tr>
+  </table></div>
+  <h3>What breaks at 10× scale and how we fix it</h3>
+  <div class="dive" style="margin-top:16px"><div class="db">
+    <div class="dl fail">Problem — Provider outage or slowdown</div>
+    <p>A major GDS goes down or starts timing out, dragging every search with it.</p>
+    <div class="dl fix">Fix</div>
+    <p>Per-provider timeouts and circuit breakers, bulkheads so one provider cannot exhaust threads, and cached or alternate-source results as fallback.</p>
+  </div></div>
+  <div class="dive"><div class="db">
+    <div class="dl fail">Problem — Traffic spikes on a route</div>
+    <p>A sale or a news event sends thousands of identical searches to one route in a minute.</p>
+    <div class="dl fix">Fix</div>
+    <p>Request coalescing (single-flight), hot-key replication in Redis, and pre-warming from search-volume streams.</p>
+  </div></div>
+  <div class="dive"><div class="db">
+    <div class="dl fail">Problem — Unknown booking state</div>
+    <p>The supplier call times out after payment authorization; did the booking happen?</p>
+    <div class="dl fix">Fix</div>
+    <p>Idempotent supplier calls, a PENDING_VERIFICATION state, reconciliation jobs that look up the supplier reference, and user messaging that does not promise before confirmation.</p>
+  </div></div>
+  <div class="dive"><div class="db">
+    <div class="dl fail">Problem — Regional outage</div>
+    <p>One region of the cache, index or DB goes down.</p>
+    <div class="dl fix">Fix</div>
+    <p>Multi-region deployment with stateless services, replicated bookings, regional caches that rebuild from providers, and read-only degradation for search.</p>
+  </div></div>
+</section>
+
+<section class="step" id="s8">
+  <span class="num">08 / Summary</span>
+  <h2>Cheat sheet</h2>
+  <p class="lead">What to remember before walking into the room.</p>
+  <div class="cheat">
+    <div class="cc"><h4>Key numbers</h4><p>50M DAU · ~10K searches/sec · ~50 providers per search · ~100K provider calls/sec · ~100 bookings/sec</p></div>
+    <div class="cc"><h4>Key datastores</h4><p>Redis (fare cache) · Elasticsearch (hotels, geo) · PostgreSQL (bookings) · Kafka · data lake</p></div>
+    <div class="cc"><h4>Search strategy</h4><p>Parallel fan-out, timeouts, circuit breakers, streamed partial results, dedupe and rank.</p></div>
+    <div class="cc"><h4>Cache strategy</h4><p>Tiered TTL, stale-while-revalidate, cache warmers, evict on price drift.</p></div>
+    <div class="cc"><h4>Booking state machine</h4><p>INITIATED → PRICE_VERIFIED → PAYMENT_AUTHORIZED → CONFIRMED, or FAILED / CANCELLED.</p></div>
+    <div class="cc"><h4>Key tradeoffs</h4><p>Speed vs. price freshness. Coverage vs. latency. Authorize-first safety vs. extra steps.</p></div>
+    <div class="cc"><h4>Hardest part</h4><p>Giving fast, believable prices from slow third parties, then booking exactly once.</p></div>
+    <div class="cc"><h4>Patterns</h4><p>Scatter-gather · circuit breaker · single-flight · saga · idempotency · stale-while-revalidate</p></div>
+    <div class="cc"><h4>Sharding keys</h4><p>Fare cache → route+date · Bookings → user_id · Hotels → geo region · Kafka → search_id / booking_id</p></div>
+    <div class="cc"><h4>Interview time map</h4><p>0–3: clarify · 3–7: requirements + estimation · 7–16: HLD + flow · 16–23: data model · 23–29: deep dives · 29–30: tradeoffs</p></div>
+  </div>
+  <h3>Consistency choices — at a glance</h3>
+  <div class="tw"><table>
+    <tr><th>Data</th><th>Consistency</th><th>Reason</th></tr>
+    <tr><td>Search results, fare cache</td><td>Eventual</td><td>Discovery only; verified at checkout</td></tr>
+    <tr><td>Hotel content</td><td>Eventual</td><td>Static, changes rarely</td></tr>
+    <tr><td>Own room inventory</td><td>Strong</td><td>Prevents double selling</td></tr>
+    <tr><td>Bookings, payments</td><td>Strong, idempotent</td><td>Money and legal records</td></tr>
+  </table></div>
+</section>
+
+</main>
+</div>
+
+<footer><span>System Design Case Study — Flight &amp; Hotel Booking · Skyscanner / MakeMyTrip style</span><span>Written as a high-level design walkthrough</span></footer>
+
+<script>
+const links=document.querySelectorAll('nav.toc a');
+const obs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){const id=e.target.id;links.forEach(l=>l.classList.toggle('active',l.getAttribute('href')==='#'+id))}})},{rootMargin:'-20% 0px -70% 0px'});
+document.querySelectorAll('section.step').forEach(s=>obs.observe(s));
+</script>
+</body>
+</html>
