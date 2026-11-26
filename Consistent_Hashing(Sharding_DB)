@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Designing a Sharded Database with Consistent Hashing — System Design Case Study</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#FAF8F4;--raised:#FFF;--ink:#16181C;--soft:#52524E;--faint:#8A887F;--line:#DEDAD0;--strong:#C7C2B5;--signal:#D85A30;--sig-soft:#FAECE7;--sig-deep:#4A1B0C;--code-bg:#16181C;--code-fg:#E9E7DF;--amber-bg:#FBF5E8;--amber-fg:#5A3D0A;--green-bg:#EEF7E8;--green-fg:#1E3B08;--fail:#A32D2D;--ok:#3B6D11;--mono:'JetBrains Mono',monospace;--sans:'Inter',sans-serif;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--paper:#14151A;--raised:#1D1F26;--ink:#ECEAE3;--soft:#B4B2A8;--line:#2D2F38;--strong:#42444E;--sig-soft:#3A2018;--sig-deep:#F5B8A3;--code-bg:#0B0C0F;--amber-bg:#2B2310;--amber-fg:#EBD29A;--green-bg:#17260F;--green-fg:#B9DDA0;--fail:#F08A8A;--ok:#8CC463}}
+:root[data-theme="dark"]{color-scheme:dark;--paper:#14151A;--raised:#1D1F26;--ink:#ECEAE3;--soft:#B4B2A8;--line:#2D2F38;--strong:#42444E;--sig-soft:#3A2018;--sig-deep:#F5B8A3;--code-bg:#0B0C0F;--amber-bg:#2B2310;--amber-fg:#EBD29A;--green-bg:#17260F;--green-fg:#B9DDA0;--fail:#F08A8A;--ok:#8CC463}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans),sans-serif;font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased}
+a{color:var(--signal);text-decoration:none}a:hover{text-decoration:underline}
+.author-badge{position:fixed;top:calc(18px + env(safe-area-inset-top,0px));right:24px;z-index:50;background:var(--signal);padding:8px 16px;border-radius:999px;box-shadow:0 2px 14px rgba(216,90,48,.35);line-height:1.3}
+.author-name{display:block;font-size:12.5px;font-weight:600;color:#fff}
+.author-links{font-family:var(--mono);font-size:10.5px;color:rgba(255,255,255,.5)}
+.author-links a{color:rgba(255,255,255,.8)}.author-links a:hover{color:#fff}
+@media (max-width:640px){.author-badge{position:static;margin:14px 32px 0;width:fit-content}}
+header.hero{max-width:1080px;margin:0 auto;padding:64px 32px 48px;border-bottom:1px solid var(--line)}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);display:flex;align-items:center;gap:10px;margin-bottom:20px}
+.eyebrow::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--signal)}
+h1{font-size:44px;font-weight:700;letter-spacing:-.02em;line-height:1.12;max-width:800px}
+h1 em{font-style:normal;color:var(--signal)}
+.hero-sub{margin-top:18px;font-size:18px;color:var(--soft);max-width:640px}
+.hero-meta{display:flex;gap:28px;margin-top:32px;flex-wrap:wrap}
+.hero-meta div{font-family:var(--mono);font-size:12px;color:var(--faint)}
+.hero-meta b{color:var(--ink);font-weight:600;display:block;font-size:14px;margin-top:2px}
+.layout{max-width:1080px;margin:0 auto;display:grid;grid-template-columns:200px 1fr;gap:56px;padding:0 32px}
+nav.toc{position:sticky;top:32px;align-self:start;padding-top:48px;font-family:var(--mono);font-size:12px}
+nav.toc a{display:block;color:var(--faint);padding:6px 0 6px 12px;border-left:2px solid transparent;margin-left:-13px}
+nav.toc a:hover,nav.toc a.active{color:var(--ink);border-left-color:var(--signal);text-decoration:none}
+main{padding:48px 0 80px;min-width:0}
+section.step{padding:40px 0;border-bottom:1px solid var(--line)}section.step:first-child{padding-top:0}
+.step-num{font-family:var(--mono);font-size:13px;color:var(--signal);font-weight:600;margin-bottom:8px;display:block}
+h2{font-size:26px;font-weight:700;letter-spacing:-.01em;margin-bottom:18px}
+h3{font-size:16px;font-weight:600;margin:28px 0 12px}
+p{margin-bottom:14px;max-width:680px}p.lead{font-size:17px;color:var(--soft)}
+ul,ol{margin:0 0 16px;padding:0;max-width:680px}
+li{list-style:none;padding-left:20px;position:relative;margin-bottom:8px;font-size:15px}
+li::before{content:'—';position:absolute;left:0;color:var(--faint)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin:20px 0}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:20px 0}
+.card{background:var(--raised);border:1px solid var(--line);padding:18px 20px}
+.card h4{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);margin-bottom:10px}
+.card p{font-size:14px;margin:0}.card li{font-size:13px}.card ul{margin:0}
+.metric{border-left:2px solid var(--signal);padding:4px 0 4px 16px}
+.metric .num{font-family:var(--mono);font-size:28px;font-weight:600;display:block;line-height:1.1}
+.metric .label{font-size:12px;color:var(--faint)}
+.insight{border-left:2px solid;padding:10px 16px;margin:12px 0;font-size:14px;max-width:680px}
+.insight-amber{border-color:#B07D2B;background:var(--amber-bg);color:var(--amber-fg)}
+.insight-green{border-color:#3B6D11;background:var(--green-bg);color:var(--green-fg)}
+pre{font-family:var(--mono);font-size:12.5px;line-height:1.8;background:var(--code-bg);color:var(--code-fg);padding:20px 22px;overflow-x:auto;margin:16px 0;border-radius:2px}
+pre .n{color:#F07A4F}pre .d{color:#8A887F}
+code.inline{font-family:var(--mono);font-size:13px;background:var(--sig-soft);color:var(--sig-deep);padding:1px 6px;border-radius:2px}
+.tw{overflow-x:auto;max-width:100%}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;max-width:760px}
+th{text-align:left;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);padding:8px 12px;border-bottom:1px solid var(--strong)}
+td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top;color:var(--soft)}
+td:first-child{color:var(--ink);font-weight:500}
+.dive{border:1px solid var(--line);margin:24px 0}
+.dive-head{background:var(--ink);color:var(--paper);padding:12px 18px;font-family:var(--mono);font-size:13px;font-weight:500;display:flex;align-items:center;gap:10px}
+.tag{background:var(--signal);color:#fff;font-size:10px;padding:2px 7px}
+.dive-body{padding:20px 22px}.dive-body p{font-size:14px}
+.dl{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin:18px 0 6px}
+.dl.fail{color:var(--fail)}.dl.fix{color:var(--ok)}
+.arch{background:var(--code-bg);padding:24px;overflow-x:auto;margin:20px 0}.arch pre{background:transparent;padding:0;margin:0}
+.comp{border:1px solid var(--line);margin:16px 0}
+.comp div{padding:14px 16px;border-bottom:1px solid var(--line)}.comp div:last-child{border:none}
+.comp b{display:block;font-size:14px;margin-bottom:4px}.comp span{font-size:13px;color:var(--soft);line-height:1.6}
+.q{font-size:13px;padding:9px 14px;background:var(--raised);border:1px solid var(--line);margin:6px 0;color:var(--soft)}
+.q::before{content:"? ";color:var(--faint);font-family:var(--mono)}
+.cheat{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);margin:20px 0}
+.cheat div{background:var(--raised);padding:16px 18px}
+.cheat h4{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--signal);margin-bottom:6px}
+.cheat p{font-size:13px;margin:0;color:var(--soft)}
+footer{border-top:1px solid var(--line);padding:40px 32px 60px;max-width:1080px;margin:0 auto;font-family:var(--mono);font-size:12px;color:var(--faint);display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+@media (max-width:840px){.layout{grid-template-columns:1fr;gap:0}nav.toc{position:static;display:flex;overflow-x:auto;gap:4px;padding:16px 0;border-bottom:1px solid var(--line);white-space:nowrap}nav.toc a{border-left:none;border-bottom:2px solid transparent;margin-left:0;padding:6px 10px}nav.toc a:hover,nav.toc a.active{border-bottom-color:var(--signal)}h1{font-size:32px}.grid2,.grid3,.cheat{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="author-badge"><span class="author-name">Samprita Koley</span><span class="author-links"><a href="mailto:sampritakoley01@gmail.com">sampritakoley01@gmail.com</a> · <a href="https://www.linkedin.com/in/sampritakoley/" target="_blank" rel="noopener">LinkedIn</a></span></div>
+
+<header class="hero">
+  <div class="eyebrow">System Design Case Study</div>
+  <h1>Designing a Sharded Database with <em>Consistent Hashing</em> that survives adding and losing nodes.</h1>
+  <p class="hero-sub">A complete high-level design walkthrough: requirements, capacity estimation, architecture, data model, and three deep dives into the hardest problems: the hash ring with virtual nodes, rebalancing without downtime, and replication with failure handling.</p>
+  <div class="hero-meta">
+    <div>SCOPE<b>Partition · Replicate · Rebalance · Recover</b></div>
+    <div>FORMAT<b>8-step HLD walkthrough</b></div>
+    <div>FOCUS<b>Data placement &amp; elasticity</b></div>
+  </div>
+</header>
+
+<div class="layout">
+<nav class="toc" id="toc">
+  <a href="#s1">01 · Problem</a><a href="#s2">02 · Requirements</a><a href="#s3">03 · Estimation</a><a href="#s4">04 · Architecture</a><a href="#s5">05 · Data Model</a><a href="#s6">06 · Deep Dives</a><a href="#s7">07 · Tradeoffs</a><a href="#s8">08 · Cheat Sheet</a>
+</nav>
+<main>
+
+<section class="step" id="s1">
+  <span class="step-num">01 / Understanding the problem</span>
+  <h2>What is this system, really?</h2>
+  <p class="lead">One machine cannot hold or serve a large dataset, so we split it across many nodes. The question is the rule that decides which node owns which key. Consistent hashing is that rule, chosen so that adding or removing a node moves only a small slice of the data.</p>
+  <p>The core challenge: nodes join, crash and get replaced all the time. The placement scheme must keep load even, find any key without a central lookup, and rebalance in the background while the database keeps serving traffic.</p>
+  <h3>Core features in scope</h3>
+  <div class="grid2">
+    <div class="card"><h4>Partitioning</h4><p>Map every key to an owner node with a hash, evenly spread, with no central directory on the read path.</p></div>
+    <div class="card"><h4>Replication</h4><p>Store each key on N nodes so a crash loses nothing and reads still succeed.</p></div>
+    <div class="card"><h4>Elastic scaling</h4><p>Add or remove nodes online, moving only about 1/N of the data.</p></div>
+    <div class="card"><h4>Failure handling</h4><p>Detect dead nodes, keep writing, and repair stale replicas automatically.</p></div>
+  </div>
+  <h3>What makes this hard at scale</h3>
+  <ul>
+    <li><strong>Remapping storms.</strong> With <code class="inline">hash(key) % N</code>, changing N moves almost every key.</li>
+    <li><strong>Uneven load.</strong> A few random points on a ring give some nodes several times more data than others.</li>
+    <li><strong>Live rebalancing.</strong> Terabytes must move between nodes while reads and writes continue.</li>
+    <li><strong>Partial failure.</strong> Nodes die, networks split, and replicas disagree about the latest value.</li>
+    <li><strong>Hot keys.</strong> A celebrity row or viral item overloads one owner no matter how well the ring balances.</li>
+  </ul>
+</section>
+
+<section class="step" id="s2">
+  <span class="step-num">02 / Requirements</span>
+  <h2>Functional vs. non-functional requirements</h2>
+  <p class="lead">The non-functional requirements decide the design, so they come with real numbers.</p>
+  <div class="grid2">
+    <div class="card"><h4>Functional</h4><ul>
+      <li>get, put and delete by key</li>
+      <li>Data partitioned across many nodes</li>
+      <li>Each key replicated to N nodes</li>
+      <li>Add and remove nodes online</li>
+      <li>Automatic recovery after node failure</li>
+      <li>Tunable consistency per request</li>
+      <li>Cluster membership and health view</li>
+      <li>Admin API for rebalance and decommission</li>
+    </ul></div>
+    <div class="card"><h4>Non-functional</h4><ul>
+      <li>100 TB of data, 1M ops/sec at peak</li>
+      <li>Reads under 10 ms p99, writes under 20 ms</li>
+      <li>99.99% availability, no single point of failure</li>
+      <li>Adding a node moves only ~1/N of the data</li>
+      <li>Load within ~10-15% across nodes</li>
+      <li>Survives loss of a node or a whole rack</li>
+      <li>Eventual consistency by default, quorum optional</li>
+      <li>Rebalancing must not break latency SLOs</li>
+    </ul></div>
+  </div>
+  <h3>Clarifying questions</h3>
+  <div class="q">Key-value access only, or range scans and secondary indexes too? Hashing destroys key ordering.</div>
+  <div class="q">Do we favour availability (Dynamo style) or strong consistency (Spanner style)?</div>
+  <div class="q">Value sizes and read/write ratio? This sets node count and the storage engine.</div>
+  <div class="q">Single region or multi-region? Placement must respect racks and zones.</div>
+  <div class="q">How often do nodes join or leave? Planned scaling is very different from constant churn.</div>
+  <div class="q">Are there known hot keys or heavy skew in the access pattern?</div>
+</section>
+
+<section class="step" id="s3">
+  <span class="step-num">03 / Estimation</span>
+  <h2>Back-of-envelope math</h2>
+  <p class="lead">Order-of-magnitude accuracy is enough. Every assumption is explicit.</p>
+  <div class="grid3">
+    <div class="metric"><span class="num">~150</span><span class="label">Storage nodes</span></div>
+    <div class="metric"><span class="num">~300 TB</span><span class="label">Stored with 3× replication</span></div>
+    <div class="metric"><span class="num">~1/N</span><span class="label">Data moved on node add</span></div>
+  </div>
+  <h3>Assumptions</h3>
+<pre>Logical data            = 100 TB, replication factor N = 3
+Peak traffic            = 1M ops/sec (70% reads, 30% writes)
+Usable per node         = ~2 TB disk at ~65% full, ~10K ops/sec
+Virtual nodes per node  = 256
+Avg record size         = ~1 KB</pre>
+  <h3>Capacity</h3>
+<pre>Raw storage:
+  100 TB × 3 replicas          = <span class="n">300 TB</span> → 300 / 2 TB = ~150 nodes
+
+Throughput:
+  Reads 700K/s + writes 300K/s × 3 replicas = ~1.6M node-ops/sec
+  1.6M / 10K per node          = ~160 nodes   <span class="d">(consistent with storage)</span>
+
+Ring size:
+  150 nodes × 256 vnodes       = <span class="n">~38K tokens</span>, a few hundred KB of metadata</pre>
+  <h3>Cost of changing the cluster</h3>
+<pre>Modulo hashing, 10 → 11 nodes:
+  keys moved = N/(N+1)         = <span class="n">~91%</span> of all data
+
+Consistent hashing, 10 → 11 nodes:
+  keys moved = 1/(N+1)         = <span class="n">~9%</span> of all data
+
+At 150 → 151 nodes: modulo moves ~99%, the ring moves ~0.7% (about 1.5 TB logical)
+
+<span class="d">The ring turns "reshuffle everything" into "stream a small slice".
+The whole ring fits in memory, so every client or router resolves a key locally.</span></pre>
+</section>
+
+<section class="step" id="s4">
+  <span class="step-num">04 / High-level design</span>
+  <h2>Architecture</h2>
+  <p class="lead">A leaderless ring where any node can coordinate a request. Every box exists because of a number in Step 3.</p>
+  <div class="arch"><pre>CLIENT / SDK  (caches ring map, can route directly)
+    │  get(key) / put(key, value)
+    ▼
+[ Coordinator node: any node on the ring ]
+    │  1. h = hash(key)
+    │  2. walk ring clockwise → first N distinct nodes = replica set
+    ▼
+        ┌──────────── HASH RING (token space 0 … 2^128) ────────────┐
+        │   A₁   B₃   C₂   A₇   D₁   B₈   C₅   D₄   A₃   ...        │
+        │        └── each physical node owns many vnode tokens       │
+        └──────────────┬──────────────┬──────────────┬──────────────┘
+                       ▼              ▼              ▼
+                  [ Node A ]     [ Node C ]     [ Node D ]   ← replicas of key
+                  memtable + WAL → SSTables (LSM storage engine)
+
+[ Gossip protocol ] ⇄ every node: membership, tokens, health (heartbeats)
+[ Seed nodes / Metadata store ]   bootstrap, ring version, topology (rack, zone)
+[ Streaming service ]             moves token ranges during join / leave
+[ Anti-entropy repair ]           Merkle tree comparison between replicas
+
+<span class="d">Requests use the ring in memory; the control path only handles membership</span></pre></div>
+  <h3>Component rationale</h3>
+  <div class="comp">
+    <div><b>Hash ring with virtual nodes</b><span>Hash space is a circle. Each key goes to the first token clockwise. Many tokens per physical node smooth the distribution.</span></div>
+    <div><b>Coordinator (any node)</b><span>Receives the client call, finds the replica set from its local ring copy, fans out the request and returns after the quorum answers.</span></div>
+    <div><b>Replica set (N = 3)</b><span>The next N distinct physical nodes clockwise, skipping vnodes of the same machine and spreading across racks or zones.</span></div>
+    <div><b>Gossip membership</b><span>Nodes exchange state every second or so, so everyone learns about joins, leaves and failures without a central coordinator.</span></div>
+    <div><b>Storage engine (LSM tree)</b><span>Write-ahead log plus memtable and SSTables give fast sequential writes and cheap range streaming by token.</span></div>
+    <div><b>Streaming and repair</b><span>Background services move ranges on topology changes and fix divergent replicas with Merkle trees.</span></div>
+  </div>
+  <h3>End-to-end data flow: "client writes key user:42"</h3>
+  <ol>
+    <li>The client sends <code class="inline">put(user:42, v)</code> to any node, or straight to a replica if it caches the ring.</li>
+    <li>The coordinator computes <code class="inline">token = hash(user:42)</code> (for example MD5 or Murmur3).</li>
+    <li>It finds the first vnode at or after the token and collects the next N distinct physical nodes.</li>
+    <li>It sends the write to all N replicas in parallel, tagged with a timestamp or version vector.</li>
+    <li>Each replica appends to its commit log, updates the memtable and acknowledges.</li>
+    <li>With <code class="inline">W = 2</code> acknowledgements, the coordinator returns success to the client.</li>
+    <li>If a replica is down, a healthy node stores a hint and replays it when the replica returns.</li>
+    <li>Reads use <code class="inline">R = 2</code>, compare versions, return the newest and repair stale replicas in the background.</li>
+  </ol>
+</section>
+
+<section class="step" id="s5">
+  <span class="step-num">05 / Data model</span>
+  <h2>Storage layer</h2>
+  <p class="lead">Data placement is computed, not stored. The only state to track is ring membership and the local data on each node.</p>
+  <div class="tw"><table>
+    <tr><th>Data</th><th>Where</th><th>Why</th></tr>
+    <tr><td>User records (key → value)</td><td>Storage nodes, LSM tree</td><td>Write-heavy, sequential I/O, compaction</td></tr>
+    <tr><td>Ring: tokens → node</td><td>In memory on every node and client</td><td>Resolve owners with no remote call</td></tr>
+    <tr><td>Membership and health</td><td>Gossip state, seeds for bootstrap</td><td>Decentralised, no single point of failure</td></tr>
+    <tr><td>Cluster config, topology</td><td>etcd / ZooKeeper (control plane)</td><td>Versioned, consistent, low volume</td></tr>
+    <tr><td>Hints for down replicas</td><td>Local disk on coordinators</td><td>Short-lived, replayed on recovery</td></tr>
+  </table></div>
+  <h3>Core structures</h3>
+<pre>-- Ring (in memory, sorted by token)
+tokens:   [ (token_0, nodeA), (token_1, nodeC), ... ]   ~38K entries
+lookup:   binary search for first token >= hash(key), wrap at the end
+
+-- Node metadata
+node { id, address, rack, zone, vnodes: [tokens], state: JOINING|NORMAL|LEAVING|DOWN,
+       ring_version }
+
+-- Stored cell (per replica)
+key → { value, timestamp | version_vector, tombstone? }</pre>
+  <h3>Scaling strategy</h3>
+  <ul>
+    <li><strong>Add capacity</strong>: new nodes claim random vnode tokens and take small ranges from many existing nodes.</li>
+    <li><strong>Heterogeneous hardware</strong>: bigger machines get more vnodes in proportion to their capacity.</li>
+    <li><strong>Placement</strong>: replicas span racks and zones so one failure never takes all copies.</li>
+    <li><strong>Clients</strong>: smart SDKs cache the ring and route to a replica in one hop; stale maps are corrected by redirects.</li>
+  </ul>
+</section>
+
+<section class="step" id="s6">
+  <span class="step-num">06 / Deep dives</span>
+  <h2>Deep dive on 3 critical components</h2>
+  <p class="lead">For each: the problem, the naive solution, why it fails, and the real solution used at scale. Volunteer these before the interviewer asks.</p>
+
+  <div class="dive"><div class="dive-head"><span class="tag">01</span> The hash ring — find the owner of any key without remapping the world</div>
+  <div class="dive-body">
+    <p><strong>The problem:</strong> Choose the node for a key so that the load is even and changing the node count disturbs as little data as possible.</p>
+    <div class="dl fail">Naive solution — modulo hashing</div>
+<pre>node = hash(key) % N        # N = 10 → 11 nodes</pre>
+    <p><strong>Why it fails:</strong> The divisor changes, so about N/(N+1) of keys get a new owner. Scaling out triggers a cluster-wide data migration and a cache or read miss storm exactly when you are already under load.</p>
+    <div class="dl fix">Real solution — consistent hashing with virtual nodes</div>
+<pre>1. Hash both nodes and keys onto the same circular space (0 … 2^128).
+
+2. A key belongs to the first node token found moving clockwise.
+
+3. Add a node: it takes over only the arcs just before its tokens,
+   about 1/(N+1) of the keys. Remove a node: only its arcs move to
+   the next clockwise owners. Everything else stays put.
+
+4. Problem with one token per node: random points give uneven arcs
+   (some nodes get 2-3× the average) and a failed node dumps its whole
+   load on a single neighbour.
+
+5. Fix: virtual nodes. Each physical node gets 100-256 tokens spread
+   around the ring. By the law of large numbers, load evens out
+   (standard deviation shrinks roughly with 1/√vnodes), and a failed
+   node's data is shared among many peers, not one.
+
+6. Lookup: sorted token array + binary search, O(log T) with T ≈ 38K.
+
+<span class="d">Use a good uniform hash (Murmur3, MD5). Hashing the key also
+spreads hot ranges, but it gives up ordered range scans.</span></pre>
+    <div class="insight insight-green">The key insight: placement depends only on the key and the set of tokens, so every client computes the same answer locally and a topology change moves a small, predictable fraction of the data.</div>
+  </div></div>
+
+  <div class="dive"><div class="dive-head"><span class="tag">02</span> Rebalancing — add and remove nodes while serving traffic</div>
+  <div class="dive-body">
+    <p><strong>The problem:</strong> A new node must receive its share of data, and a leaving node must hand its data off, without downtime, lost writes or latency spikes.</p>
+    <div class="dl fail">Naive solution — stop writes, copy, flip the map</div>
+<pre>1. pause cluster   2. copy data to new node   3. update ring   4. resume</pre>
+    <p><strong>Why it fails:</strong> Copying terabytes takes hours, so the pause is an outage. Writes arriving mid-copy are lost or land on the wrong node. Flipping the ring instantly makes reads miss data that has not arrived yet.</p>
+    <div class="dl fix">Real solution — staged join with streaming and dual writes</div>
+<pre>1. Join: the new node picks vnode tokens, contacts a seed, and gossips
+   in state JOINING. It is not yet visible to reads.
+
+2. Streaming: for each token range it will own, it pulls data from the
+   current owners in parallel, throttled so foreground latency holds.
+
+3. Writes during the move go to BOTH the old owners and the joining
+   node (pending ranges), so nothing is missed.
+
+4. When streaming and catch-up finish, the node switches to NORMAL
+   and gossips new ownership. Reads start using it.
+
+5. Old owners then clean up: delete data outside their ranges
+   (background cleanup or compaction), never before the new owner is safe.
+
+6. Leave / decommission: mirror image. State LEAVING, stream every
+   range to its next clockwise owners, then drop out of the ring.
+
+7. Add one node at a time (or a few) and let each finish. Rate-limit
+   streaming and compaction; throttle by disk and network headroom.
+
+<span class="d">Ring changes carry a version number. A request routed with a stale
+ring is redirected, and eventual gossip convergence fixes the rest.</span></pre>
+    <div class="insight insight-amber">Move data first, switch ownership second, delete last. At any moment at least N healthy copies must exist, so a failed rebalance never loses data.</div>
+  </div></div>
+
+  <div class="dive"><div class="dive-head"><span class="tag">03</span> Replication and failure handling — stay available when nodes die</div>
+  <div class="dive-body">
+    <p><strong>The problem:</strong> Nodes crash and networks partition. The database must keep accepting reads and writes, avoid losing acknowledged data and converge back to a single truth.</p>
+    <div class="dl fail">Naive solution — one copy per key, or a single primary per shard</div>
+<pre>owner = ring.lookup(key);  owner.write(key, value)     # no replicas</pre>
+    <p><strong>Why it fails:</strong> One dead node makes its keys unavailable and may destroy data permanently. A single primary per shard needs leader election and becomes a bottleneck on failure.</p>
+    <div class="dl fix">Real solution — N replicas on the ring, quorums, hints and repair</div>
+<pre>1. Replica set: the next N distinct physical nodes clockwise from the
+   key's token (N = 3), spread across racks / zones.
+
+2. Quorum: write to all N, wait for W acks; read from R replicas.
+   If R + W > N (for example 2 + 2 > 3), reads overlap the latest write.
+   Tune: W=1 for speed, W=N for durability, R=1 for cheap reads.
+
+3. Failure detection: gossip heartbeats with a phi-accrual detector,
+   so slow nodes are suspected gradually instead of flapping.
+
+4. Sloppy quorum + hinted handoff: if a replica is down, write to the
+   next healthy node on the ring with a hint, and replay it when the
+   owner returns. Writes stay available.
+
+5. Conflict resolution: last-write-wins by timestamp, or vector
+   clocks / CRDTs when concurrent updates must not be dropped.
+
+6. Read repair: when replicas return different versions, send the
+   newest back to the stale ones.
+
+7. Anti-entropy: periodically compare Merkle trees of each token range
+   between replicas and sync only the differing branches.
+
+8. Permanent loss: replace the node, stream its ranges from surviving
+   replicas, and restore N copies.
+
+<span class="d">Under a partition, choose per use case: sloppy quorum for
+availability (AP), strict quorum with errors for stronger consistency.</span></pre>
+    <div class="insight insight-green">Replication follows the ring, so no extra directory is needed. Quorums give tunable consistency, and hints plus repair make replicas converge after any failure.</div>
+  </div></div>
+</section>
+
+<section class="step" id="s7">
+  <span class="step-num">07 / Tradeoffs &amp; alternatives</span>
+  <h2>What we did NOT choose and why</h2>
+  <h3>Rejected alternatives</h3>
+  <div class="tw"><table>
+    <tr><th>Alternative</th><th>Why rejected</th></tr>
+    <tr><td>hash(key) % N</td><td>Remaps nearly all keys whenever N changes.</td></tr>
+    <tr><td>One token per node</td><td>Uneven arcs and a single neighbour absorbing a failed node’s whole load.</td></tr>
+    <tr><td>Central directory (key → shard)</td><td>Extra lookup on every request, a bottleneck and a single point of failure.</td></tr>
+    <tr><td>Range partitioning</td><td>Keeps order for scans but creates hot ranges, such as sequential IDs hitting one shard.</td></tr>
+    <tr><td>Jump consistent hash</td><td>Very fast and even, but supports only adding or removing the last bucket, so it does not fit arbitrary node failures.</td></tr>
+    <tr><td>Primary-replica per shard</td><td>Needs leader election and failover; the leaderless ring avoids it, at the cost of conflict handling.</td></tr>
+    <tr><td>Strong consistency everywhere</td><td>Costs latency and availability; make it opt-in per request with quorums.</td></tr>
+  </table></div>
+  <h3>What breaks at 10× scale and how we fix it</h3>
+  <div class="dive" style="margin-top:16px"><div class="dive-body">
+    <div class="dl fail">Problem: Hot keys and skewed access</div>
+    <p>A viral key overloads its three replicas, however even the ring is. Consistent hashing balances keys, not traffic.</p>
+    <div class="dl fix">Fix</div>
+    <p>Cache hot keys in front, add key-suffix salting (<code class="inline">key#0..k</code>) to split writes, serve hot reads from more replicas, and detect hot keys with sampling.</p>
+  </div></div>
+  <div class="dive"><div class="dive-body">
+    <div class="dl fail">Problem: Rebalance storms and flapping nodes</div>
+    <p>A node that keeps dropping out triggers repeated streaming, and many simultaneous joins swamp disks and network.</p>
+    <div class="dl fix">Fix</div>
+    <p>Wait a grace period before treating a node as dead (hints cover short outages), limit concurrent streams, add one node at a time, and cap streaming bandwidth.</p>
+  </div></div>
+  <div class="dive"><div class="dive-body">
+    <div class="dl fail">Problem: Rack or zone failure</div>
+    <p>If all replicas of a range sit on one rack, one power failure loses availability or data.</p>
+    <div class="dl fix">Fix</div>
+    <p>Rack- and zone-aware placement picks replicas from different failure domains, with enough spare capacity to re-replicate the lost share.</p>
+  </div></div>
+  <div class="dive"><div class="dive-body">
+    <div class="dl fail">Problem: Gossip and ring metadata at 1000+ nodes</div>
+    <p>Full-mesh gossip and huge token tables slow convergence and increase memory and network cost.</p>
+    <div class="dl fix">Fix</div>
+    <p>Gossip to a few random peers per round, reduce vnodes (16-64) with token allocation algorithms, or move ownership to a consistent metadata service with a versioned shard map.</p>
+  </div></div>
+</section>
+
+<section class="step" id="s8">
+  <span class="step-num">08 / Summary</span>
+  <h2>Cheat sheet</h2>
+  <p class="lead">The things worth remembering before walking into the room.</p>
+  <div class="cheat">
+    <div><h4>Key numbers</h4><p>100 TB · N = 3 · ~150 nodes · 256 vnodes each · ~38K tokens · 1M ops/sec · node add moves ~1/N</p></div>
+    <div><h4>Placement rule</h4><p>token = hash(key); first vnode clockwise is the owner; next N distinct physical nodes are replicas.</p></div>
+    <div><h4>Why vnodes</h4><p>Even load, failed-node data spread over many peers, weighted capacity for bigger machines.</p></div>
+    <div><h4>Consistency</h4><p>Quorum R + W &gt; N for strong reads, W=1 or R=1 for speed. LWW or vector clocks for conflicts.</p></div>
+    <div><h4>Failure toolkit</h4><p>Gossip + phi-accrual detection · sloppy quorum · hinted handoff · read repair · Merkle anti-entropy.</p></div>
+    <div><h4>Rebalancing</h4><p>JOINING → stream ranges with dual writes → NORMAL → cleanup old copies. One node at a time, throttled.</p></div>
+    <div><h4>Key tradeoffs</h4><p>Availability vs consistency · hash vs range partitioning · vnode count vs metadata size · speed vs rebalance impact.</p></div>
+    <div><h4>Hardest part</h4><p>Moving data and changing ownership safely while serving traffic and tolerating failures mid-move.</p></div>
+    <div><h4>Real systems</h4><p>Dynamo, Cassandra, Riak, DynamoDB internals, Memcached clients, CDN request routing.</p></div>
+    <div><h4>Interview time map</h4><p>0–3 min: clarify · 3–7: requirements + estimation · 7–16: HLD + flow · 16–23: data + ring · 23–29: deep dives · 29–30: tradeoffs</p></div>
+  </div>
+  <h3>Partitioning approaches: at a glance</h3>
+  <div class="tw"><table>
+    <tr><th>Approach</th><th>How it works</th><th>Strength</th><th>Weakness</th></tr>
+    <tr><td>Modulo hash</td><td>hash(key) % N</td><td>Trivial, even</td><td>Remaps almost everything on resize</td></tr>
+    <tr><td>Hash ring</td><td>Clockwise walk to next node token</td><td>Moves ~1/N on change</td><td>Uneven with few tokens</td></tr>
+    <tr><td>Ring + vnodes</td><td>Many tokens per node</td><td>Even load, smooth recovery</td><td>Larger metadata, more streams</td></tr>
+    <tr><td>Rendezvous (HRW)</td><td>Pick the node with highest hash(key, node)</td><td>Simple, minimal movement</td><td>O(N) per lookup</td></tr>
+    <tr><td>Jump hash</td><td>Arithmetic mapping to bucket number</td><td>No memory, very even</td><td>Cannot remove arbitrary nodes</td></tr>
+    <tr><td>Range / directory</td><td>Key ranges mapped by a lookup table</td><td>Range scans, flexible splits</td><td>Hot ranges, directory dependency</td></tr>
+  </table></div>
+</section>
+
+</main>
+</div>
+
+<footer><span>System Design Case Study — Consistent Hashing Sharded Database · FAANG interview prep</span><span>Written as a high-level design walkthrough</span></footer>
+
+<script>
+const links=document.querySelectorAll('nav.toc a'),secs=document.querySelectorAll('section.step');
+const obs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){const id=e.target.id;links.forEach(l=>l.classList.toggle('active',l.getAttribute('href')==='#'+id))}})},{rootMargin:'-20% 0px -70% 0px'});
+secs.forEach(s=>obs.observe(s));
+</script>
+</body>
+</html>
