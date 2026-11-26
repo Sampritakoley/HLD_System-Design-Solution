@@ -32,10 +32,7 @@ This repository is designed to help software engineers **master System Design in
 <sub>👉 <a href="https://sampritakoley.github.io/HLD_System-Design-Solution/RateLimiter/">[17] Design Rate Limiter</a></sub><br>
 <sub>👉 <a href="https://sampritakoley.github.io/HLD_System-Design-Solution/Api_Gateway/">[18] Design Api Gateway</a></sub><br>
 <sub>👉 <a href="https://sampritakoley.github.io/HLD_System-Design-Solution/WhatsappSystemDesign/">[19] Design WhatsApp / Messaging App</a></sub><br>
-<sub>👉 <a href="https://sampritakoley.github.io/HLD_System-Design-Solution/Api_Gateway/">[20] Design Consistent Hashing Sharded DB
-</a></sub>
-
----
+<sub>👉 <a href="https://sampritakoley.github.io/HLD_System-Design-Solution/Api_Gateway/">[20] Design Consistent Hashing Sharded DB </a></sub>
 
 ---
 
