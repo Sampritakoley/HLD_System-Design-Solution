@@ -12,7 +12,6 @@ This repository is designed to help software engineers **master System Design in
 
 
 **🔗 Solutions** <br>
-
 <sub>👉 <a href="https://sampritakoley.github.io/HLD_System-Design-Solution/PhotoSharingSysDesign/">[1] Design Instagram / Photo Sharing Platform</a></sub><br>
 <sub>👉 <a href="https://sampritakoley.github.io/HLD_System-Design-Solution/TwitterNewsFeed/">[2] Design Twitter/X News Feed Platform</a></sub><br>
 <sub>👉 <a href="https://sampritakoley.github.io/HLD_System-Design-Solution/FacebookNewsFeed/">[3] Design Facebook News Feed</a></sub><br>
@@ -33,8 +32,6 @@ This repository is designed to help software engineers **master System Design in
 <sub>👉 <a href="https://sampritakoley.github.io/HLD_System-Design-Solution/Api_Gateway/">[18] Design Api Gateway</a></sub><br>
 <sub>👉 <a href="https://sampritakoley.github.io/HLD_System-Design-Solution/WhatsappSystemDesign/">[19] Design WhatsApp / Messaging App</a></sub><br>
 <sub>👉 <a href="https://sampritakoley.github.io/HLD_System-Design-Solution/Api_Gateway/">[20] Design Consistent Hashing Sharded DB </a></sub>
-
----
 
 # ✨ What You'll Learn
 
