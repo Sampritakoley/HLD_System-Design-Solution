@@ -87,11 +87,7 @@ More production-scale system design solutions are continuously being added.
 | 🗄️ Databases & Distributed Systems | 12 |
 | 🇮🇳 Indian Product Systems | 10 |
 
-### Total Coverage
 
-> **170+ Real-World System Design Interview Questions**
-
----
 
 # 🏛️ Distributed Systems Concepts Covered
 
@@ -125,44 +121,7 @@ This repository covers the core concepts expected from Software Engineers, Senio
 - Monitoring & Observability
 - Disaster Recovery
 
----
 
-# 🎯 Who Is This Repository For?
-
-This repository is designed for:
-
-- Software Engineers
-- Backend Developers
-- Java Developers
-- Full Stack Developers
-- SDE-1 / SDE-2 / Senior Software Engineers
-- Students preparing for Product-Based Companies
-- Anyone interested in Distributed Systems
-
----
-
-# 🏢 Interview Preparation For
-
-This repository is particularly useful for interviews at:
-
-- Amazon
-- Microsoft
-- Google
-- Meta
-- Uber
-- Netflix
-- Atlassian
-- Adobe
-- Oracle
-- Walmart Global Tech
-- Razorpay
-- Swiggy
-- Flipkart
-- PhonePe
-- CRED
-- Meesho
-- Zepto
-- Ola
 
 ---
 
@@ -204,23 +163,7 @@ This repository is particularly useful for interviews at:
 
 ---
 
-# 💡 Why This Repository?
 
-Unlike traditional System Design repositories that focus only on architecture diagrams, this project emphasizes the **engineering decision-making process** behind designing scalable systems.
-
-Each solution is written to help you:
-
-- Think like a Senior Backend Engineer
-- Ask the right clarifying questions
-- Estimate system scale
-- Design scalable architectures
-- Compare multiple approaches
-- Analyze trade-offs
-- Explain decisions confidently during interviews
-
-The goal is to help you build the mindset required to crack System Design interviews—not just memorize solutions.
-
----
 
 # ⭐ Support the Project
 
