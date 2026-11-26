@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Designing an API Gateway — System Design Case Study</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#FAF8F4;--raised:#FFF;--ink:#16181C;--soft:#52524E;--faint:#8A887F;--line:#DEDAD0;--strong:#C7C2B5;--signal:#D85A30;--sig-soft:#FAECE7;--sig-deep:#4A1B0C;--code-bg:#16181C;--code-fg:#E9E7DF;--amber-bg:#FBF5E8;--amber-fg:#5A3D0A;--green-bg:#EEF7E8;--green-fg:#1E3B08;--fail:#A32D2D;--ok:#3B6D11;--mono:'JetBrains Mono',monospace;--sans:'Inter',sans-serif;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--paper:#14151A;--raised:#1D1F26;--ink:#ECEAE3;--soft:#B4B2A8;--faint:#8A887F;--line:#2D2F38;--strong:#42444E;--sig-soft:#3A2018;--sig-deep:#F5B8A3;--code-bg:#0B0C0F;--amber-bg:#2B2310;--amber-fg:#EBD29A;--green-bg:#17260F;--green-fg:#B9DDA0;--fail:#F08A8A;--ok:#8CC463}}
+:root[data-theme="dark"]{color-scheme:dark;--paper:#14151A;--raised:#1D1F26;--ink:#ECEAE3;--soft:#B4B2A8;--line:#2D2F38;--strong:#42444E;--sig-soft:#3A2018;--sig-deep:#F5B8A3;--code-bg:#0B0C0F;--amber-bg:#2B2310;--amber-fg:#EBD29A;--green-bg:#17260F;--green-fg:#B9DDA0;--fail:#F08A8A;--ok:#8CC463}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans),sans-serif;font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased}
+a{color:var(--signal);text-decoration:none}a:hover{text-decoration:underline}
+.author-badge{position:fixed;top:calc(18px + env(safe-area-inset-top,0px));right:24px;z-index:50;background:var(--signal);padding:8px 16px;border-radius:999px;box-shadow:0 2px 14px rgba(216,90,48,.35);line-height:1.3}
+.author-name{display:block;font-size:12.5px;font-weight:600;color:#fff}
+.author-links{font-family:var(--mono);font-size:10.5px;color:rgba(255,255,255,.5)}
+.author-links a{color:rgba(255,255,255,.8)}.author-links a:hover{color:#fff}
+@media (max-width:640px){.author-badge{position:static;margin:14px 32px 0;width:fit-content}}
+header.hero{max-width:1080px;margin:0 auto;padding:64px 32px 48px;border-bottom:1px solid var(--line)}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);display:flex;align-items:center;gap:10px;margin-bottom:20px}
+.eyebrow::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--signal)}
+h1{font-size:44px;font-weight:700;letter-spacing:-.02em;line-height:1.12;max-width:780px}
+h1 em{font-style:normal;color:var(--signal)}
+.hero-sub{margin-top:18px;font-size:18px;color:var(--soft);max-width:640px}
+.hero-meta{display:flex;gap:28px;margin-top:32px;flex-wrap:wrap}
+.hero-meta div{font-family:var(--mono);font-size:12px;color:var(--faint)}
+.hero-meta b{color:var(--ink);font-weight:600;display:block;font-size:14px;margin-top:2px}
+.layout{max-width:1080px;margin:0 auto;display:grid;grid-template-columns:200px 1fr;gap:56px;padding:0 32px}
+nav.toc{position:sticky;top:32px;align-self:start;padding-top:48px;font-family:var(--mono);font-size:12px}
+nav.toc a{display:block;color:var(--faint);padding:6px 0 6px 12px;border-left:2px solid transparent;margin-left:-13px}
+nav.toc a:hover,nav.toc a.active{color:var(--ink);border-left-color:var(--signal);text-decoration:none}
+main{padding:48px 0 80px;min-width:0}
+section.step{padding:40px 0;border-bottom:1px solid var(--line)}section.step:first-child{padding-top:0}
+.step-num{font-family:var(--mono);font-size:13px;color:var(--signal);font-weight:600;margin-bottom:8px;display:block}
+h2{font-size:26px;font-weight:700;letter-spacing:-.01em;margin-bottom:18px}
+h3{font-size:16px;font-weight:600;margin:28px 0 12px}
+p{margin-bottom:14px;max-width:680px}p.lead{font-size:17px;color:var(--soft)}
+ul,ol{margin:0 0 16px;padding:0;max-width:680px}
+li{list-style:none;padding-left:20px;position:relative;margin-bottom:8px;font-size:15px}
+li::before{content:'—';position:absolute;left:0;color:var(--faint)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin:20px 0}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:20px 0}
+.card{background:var(--raised);border:1px solid var(--line);padding:18px 20px}
+.card h4{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);margin-bottom:10px}
+.card p{font-size:14px;margin:0}.card li{font-size:13px}.card ul{margin:0}
+.metric{border-left:2px solid var(--signal);padding:4px 0 4px 16px}
+.metric .num{font-family:var(--mono);font-size:28px;font-weight:600;display:block;line-height:1.1}
+.metric .label{font-size:12px;color:var(--faint)}
+.insight{border-left:2px solid;padding:10px 16px;margin:12px 0;font-size:14px;max-width:680px}
+.insight-amber{border-color:#B07D2B;background:var(--amber-bg);color:var(--amber-fg)}
+.insight-green{border-color:#3B6D11;background:var(--green-bg);color:var(--green-fg)}
+pre{font-family:var(--mono);font-size:12.5px;line-height:1.8;background:var(--code-bg);color:var(--code-fg);padding:20px 22px;overflow-x:auto;margin:16px 0;border-radius:2px}
+pre .n{color:#F07A4F}pre .d{color:#8A887F}
+code.inline{font-family:var(--mono);font-size:13px;background:var(--sig-soft);color:var(--sig-deep);padding:1px 6px;border-radius:2px}
+.tw{overflow-x:auto;max-width:100%}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;max-width:760px}
+th{text-align:left;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);padding:8px 12px;border-bottom:1px solid var(--strong)}
+td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top;color:var(--soft)}
+td:first-child{color:var(--ink);font-weight:500}
+.dive{border:1px solid var(--line);margin:24px 0}
+.dive-head{background:var(--ink);color:var(--paper);padding:12px 18px;font-family:var(--mono);font-size:13px;font-weight:500;display:flex;align-items:center;gap:10px}
+.tag{background:var(--signal);color:#fff;font-size:10px;padding:2px 7px}
+.dive-body{padding:20px 22px}.dive-body p{font-size:14px}
+.dl{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin:18px 0 6px}
+.dl.fail{color:var(--fail)}.dl.fix{color:var(--ok)}
+.arch{background:var(--code-bg);padding:24px;overflow-x:auto;margin:20px 0}.arch pre{background:transparent;padding:0;margin:0}
+.comp{border:1px solid var(--line);margin:16px 0}
+.comp div{padding:14px 16px;border-bottom:1px solid var(--line)}.comp div:last-child{border:none}
+.comp b{display:block;font-size:14px;margin-bottom:4px}.comp span{font-size:13px;color:var(--soft);line-height:1.6}
+.q{font-size:13px;padding:9px 14px;background:var(--raised);border:1px solid var(--line);margin:6px 0;color:var(--soft)}
+.q::before{content:"? ";color:var(--faint);font-family:var(--mono)}
+.cheat{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);margin:20px 0}
+.cheat div{background:var(--raised);padding:16px 18px}
+.cheat h4{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--signal);margin-bottom:6px}
+.cheat p{font-size:13px;margin:0;color:var(--soft)}
+footer{border-top:1px solid var(--line);padding:40px 32px 60px;max-width:1080px;margin:0 auto;font-family:var(--mono);font-size:12px;color:var(--faint);display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+@media (max-width:840px){.layout{grid-template-columns:1fr;gap:0}nav.toc{position:static;display:flex;overflow-x:auto;gap:4px;padding:16px 0;border-bottom:1px solid var(--line);white-space:nowrap}nav.toc a{border-left:none;border-bottom:2px solid transparent;margin-left:0;padding:6px 10px}nav.toc a:hover,nav.toc a.active{border-bottom-color:var(--signal)}h1{font-size:32px}.grid2,.grid3,.cheat{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="author-badge"><span class="author-name">Samprita Koley</span><span class="author-links"><a href="mailto:sampritakoley01@gmail.com">sampritakoley01@gmail.com</a> · <a href="https://www.linkedin.com/in/sampritakoley/" target="_blank" rel="noopener">LinkedIn</a></span></div>
+
+<header class="hero">
+  <div class="eyebrow">System Design Case Study</div>
+  <h1>Designing an API Gateway for <em>1 million requests per second</em> across hundreds of services.</h1>
+  <p class="hero-sub">A complete high-level design walkthrough: requirements, capacity estimation, architecture, config model, and three deep dives into the hardest problems: distributed rate limiting, auth and routing at the edge, and resilience.</p>
+  <div class="hero-meta">
+    <div>SCOPE<b>Route · Authenticate · Limit · Observe</b></div>
+    <div>FORMAT<b>8-step HLD walkthrough</b></div>
+    <div>FOCUS<b>Low latency &amp; failure isolation</b></div>
+  </div>
+</header>
+
+<div class="layout">
+<nav class="toc" id="toc">
+  <a href="#s1">01 · Problem</a><a href="#s2">02 · Requirements</a><a href="#s3">03 · Estimation</a><a href="#s4">04 · Architecture</a><a href="#s5">05 · Data &amp; Config</a><a href="#s6">06 · Deep Dives</a><a href="#s7">07 · Tradeoffs</a><a href="#s8">08 · Cheat Sheet</a>
+</nav>
+<main>
+
+<section class="step" id="s1">
+  <span class="step-num">01 / Understanding the problem</span>
+  <h2>What is an API gateway, really?</h2>
+  <p class="lead">An API gateway is the single front door to a fleet of backend services. It terminates TLS, authenticates callers, enforces limits, routes each request to the right service and reports what happened. Every request pays its latency tax, so it must be fast and almost never down.</p>
+  <p>The core challenge: it sits on the critical path of everything. A slow gateway slows the whole product, and a crashed gateway is a full outage. Yet it must also be configurable by hundreds of teams without redeploys.</p>
+  <h3>Core features in scope</h3>
+  <div class="grid2">
+    <div class="card"><h4>Routing</h4><p>Map host, path and method to an upstream service, with versioning, rewrites and weighted canary splits.</p></div>
+    <div class="card"><h4>Authentication</h4><p>Validate API keys, JWTs and OAuth tokens once at the edge, then pass trusted identity downstream.</p></div>
+    <div class="card"><h4>Rate limiting</h4><p>Per-client, per-API and global quotas that protect backends and enforce fair use.</p></div>
+    <div class="card"><h4>Resilience &amp; observability</h4><p>Timeouts, retries, circuit breakers, plus logs, metrics and trace IDs for every call.</p></div>
+  </div>
+  <h3>What makes this hard at scale</h3>
+  <ul>
+    <li><strong>Latency budget.</strong> The gateway may add only a few milliseconds at p99, with auth and limits included.</li>
+    <li><strong>Distributed counters.</strong> A limit of 100 req/s must hold across 30 gateway nodes, without a network hop per request.</li>
+    <li><strong>Config propagation.</strong> A route change must reach every node in seconds, safely, with no restarts.</li>
+    <li><strong>Cascading failure.</strong> One slow upstream can eat every worker thread and take down unrelated APIs.</li>
+    <li><strong>Single point of failure.</strong> Everything flows through it, so it must be stateless, replicated and fail-safe.</li>
+  </ul>
+</section>
+
+<section class="step" id="s2">
+  <span class="step-num">02 / Requirements</span>
+  <h2>Functional vs. non-functional requirements</h2>
+  <p class="lead">Non-functional requirements drive the architecture, so they get the most attention.</p>
+  <div class="grid2">
+    <div class="card"><h4>Functional</h4><ul>
+      <li>Route by host, path, method and headers</li>
+      <li>Authenticate API keys, JWT and OAuth</li>
+      <li>Rate limit and quota per client and API</li>
+      <li>Request and response transformation</li>
+      <li>Load balancing and health checks</li>
+      <li>Retries, timeouts, circuit breaking</li>
+      <li>Logging, metrics and distributed tracing</li>
+      <li>Admin API to manage routes and policies</li>
+    </ul></div>
+    <div class="card"><h4>Non-functional</h4><ul>
+      <li>1M requests/sec at peak, ~500 services</li>
+      <li>Added latency under 10 ms at p99</li>
+      <li>99.99% availability, no single point of failure</li>
+      <li>Stateless nodes that scale horizontally</li>
+      <li>Config changes live in under 5 seconds</li>
+      <li>Rate limits accurate within a few percent</li>
+      <li>Failure isolation between tenants and APIs</li>
+      <li>Secure by default: TLS, no secret leakage</li>
+    </ul></div>
+  </div>
+  <h3>Clarifying questions</h3>
+  <div class="q">Is this for external public traffic, internal service-to-service, or both?</div>
+  <div class="q">Which protocols: REST only, or also gRPC, WebSocket and GraphQL?</div>
+  <div class="q">Are limits per user, per API key, per IP, or per tenant? Is exact accuracy required?</div>
+  <div class="q">Single region or multi-region active-active?</div>
+  <div class="q">Should the gateway cache responses, or only route?</div>
+  <div class="q">Build custom, or run on Envoy, Kong or NGINX? This sets how much we design from scratch.</div>
+</section>
+
+<section class="step" id="s3">
+  <span class="step-num">03 / Estimation</span>
+  <h2>Back-of-envelope math</h2>
+  <p class="lead">Order-of-magnitude accuracy is enough. Every assumption is explicit.</p>
+  <div class="grid3">
+    <div class="metric"><span class="num">~1M/s</span><span class="label">Peak requests</span></div>
+    <div class="metric"><span class="num">~1M/s</span><span class="label">Rate limit checks</span></div>
+    <div class="metric"><span class="num">~25-75</span><span class="label">Gateway nodes</span></div>
+  </div>
+  <h3>Assumptions</h3>
+<pre>Peak traffic            = 1M req/sec (average ~300K/sec)
+Avg request + response  = ~2 KB request, ~10 KB response
+One node (8 vCPU)       = ~40K req/sec with TLS + auth + limits
+Config size             = 500 services × 20 routes ≈ 10K routes, a few MB
+Access log line         = ~500 bytes</pre>
+  <h3>QPS and capacity</h3>
+<pre>Nodes needed:
+  1M / 40K                     = 25 nodes, ×2-3 headroom = <span class="n">~50-75 nodes</span>
+
+Rate limit checks:
+  Every request checks a counter = 1M/sec
+  Central Redis at 100K ops/sec per shard = ~10 shards
+  <span class="d">Better: local token buckets + periodic sync cuts remote calls ~100×</span>
+
+Auth:
+  JWT verified locally (signature + expiry) = no network call
+  API keys cached in-process, 99%+ hit rate</pre>
+  <h3>Bandwidth and logs</h3>
+<pre>Ingress   = 1M × 2 KB   = <span class="n">~2 GB/s</span>
+Egress    = 1M × 10 KB  = <span class="n">~10 GB/s</span>  (CDN and compression absorb a lot)
+Logs      = 1M × 500 B  = 500 MB/s ≈ 43 TB/day → sample 1-10%, always keep errors
+
+<span class="d">The constraints are per-request CPU, TLS handshakes and connection counts,
+not storage. Keep the hot path free of remote calls.</span></pre>
+</section>
+
+<section class="step" id="s4">
+  <span class="step-num">04 / High-level design</span>
+  <h2>Architecture</h2>
+  <p class="lead">Split into a data plane that handles traffic and a control plane that manages config. Every box exists because of a number in Step 3.</p>
+  <div class="arch"><pre>CLIENTS (web, mobile, partners)
+    │  HTTPS
+    ▼
+[ DNS / Global LB / CDN / WAF ]
+    │
+    ▼
+[ L4 Load Balancer ]
+    │
+    ▼
+┌──────────────── DATA PLANE (stateless gateway nodes) ────────────────┐
+│ TLS → Auth → Rate limit → Route match → Transform → LB → Upstream     │
+│   │      │        │              │                       │            │
+│   │   [Token/key  [Local bucket  [In-memory route        [Circuit     │
+│   │    cache]      + Redis]       table]                  breaker]    │
+└───┼───────────────┼───────────────┼──────────────────────┼───────────┘
+    │               ▼               ▲                      ▼
+    │         [ Redis cluster ]     │               [ Backend services ]
+    ▼                               │
+[ Kafka: logs, metrics, traces ]    │ push / watch
+    │                         [ Control plane: Admin API + Config DB ]
+    ▼                               ▲
+[ Observability · Analytics ]       │
+                              [ Service registry / discovery ]
+
+<span class="d">The data plane keeps serving from its last good config if the control plane is down</span></pre></div>
+  <h3>Component rationale</h3>
+  <div class="comp">
+    <div><b>L4 load balancer</b><span>Spreads TCP connections over gateway nodes with no request parsing. Cheap, fast, and removes the single entry point.</span></div>
+    <div><b>Gateway node (data plane)</b><span>Stateless proxy running a filter chain. All hot-path data (routes, keys, public keys, limits) lives in local memory.</span></div>
+    <div><b>Control plane + Config DB</b><span>Teams change routes and policies through an Admin API. Validated config is versioned and pushed to nodes, never read per request.</span></div>
+    <div><b>Redis cluster</b><span>Shared counters for rate limits and quotas, sharded by client key, used asynchronously where possible.</span></div>
+    <div><b>Service discovery</b><span>Tracks healthy upstream instances so routing follows autoscaling and deploys without manual changes.</span></div>
+    <div><b>Kafka</b><span>Access logs, metrics and traces are emitted asynchronously so observability never blocks the request.</span></div>
+  </div>
+  <h3>End-to-end flow: "client calls GET /v2/orders/42"</h3>
+  <ol>
+    <li>DNS routes the client to the nearest region; the L4 load balancer picks a gateway node.</li>
+    <li>The node terminates TLS and assigns a <code class="inline">request-id</code> and trace context.</li>
+    <li>Auth filter verifies the JWT locally, or looks up the API key in its cache, and attaches identity headers.</li>
+    <li>Rate limit filter takes a token from the local bucket for this client and API; over limit returns <code class="inline">429</code> with <code class="inline">Retry-After</code>.</li>
+    <li>Router matches host, path and method in an in-memory trie and finds the <code class="inline">orders</code> upstream.</li>
+    <li>Load balancer picks a healthy instance (least requests or power of two choices); the circuit breaker is checked.</li>
+    <li>Request is proxied with a timeout; idempotent failures retry once on another instance.</li>
+    <li>Response returns to the client; an access log and metrics are emitted asynchronously.</li>
+  </ol>
+</section>
+
+<section class="step" id="s5">
+  <span class="step-num">05 / Data and config design</span>
+  <h2>Storage layer</h2>
+  <p class="lead">The gateway owns very little data. What it does own is config, counters and logs, each with a different home.</p>
+  <div class="tw"><table>
+    <tr><th>Data</th><th>Store</th><th>Why</th></tr>
+    <tr><td>Routes, policies, API clients</td><td>PostgreSQL + etcd</td><td>Durable, versioned, watched by nodes</td></tr>
+    <tr><td>Rate limit counters</td><td>Redis cluster</td><td>Atomic increments, TTL, very fast</td></tr>
+    <tr><td>API key and token cache</td><td>In-process (LRU, TTL)</td><td>Zero network hop on the hot path</td></tr>
+    <tr><td>Access logs, metrics</td><td>Kafka → ClickHouse / S3</td><td>Append-only, high volume</td></tr>
+    <tr><td>Service instances</td><td>Consul / Kubernetes API</td><td>Health-aware discovery</td></tr>
+  </table></div>
+  <h3>Config model and keys</h3>
+<pre>-- PostgreSQL (control plane)
+CREATE TABLE routes (
+  route_id     UUID PRIMARY KEY,
+  host         TEXT NOT NULL,
+  path_prefix  TEXT NOT NULL,
+  methods      TEXT[],
+  upstream     TEXT NOT NULL,       -- service name
+  auth_policy  TEXT,                -- NONE | API_KEY | JWT | OAUTH
+  rate_policy  TEXT,
+  timeout_ms   INT DEFAULT 3000,
+  version      BIGINT NOT NULL,     -- monotonic config version
+  UNIQUE (host, path_prefix)
+);
+
+-- Redis
+Key:  rl:{client_id}:{api}:{window}   Value: counter        TTL = window
+Key:  rl:tb:{client_id}:{api}         Value: HASH { tokens, ts }</pre>
+  <h3>Scaling strategy</h3>
+  <ul>
+    <li><strong>Gateway nodes</strong>: stateless, autoscaled on CPU and connection count, spread over zones.</li>
+    <li><strong>Redis</strong>: shard by <code class="inline">client_id</code>, replicas for failover; on failure, fall back to local limits.</li>
+    <li><strong>Config</strong>: versioned snapshots pushed to nodes; each node acknowledges the version it runs.</li>
+    <li><strong>Regions</strong>: one gateway fleet per region, global DNS routing, config replicated across regions.</li>
+  </ul>
+</section>
+
+<section class="step" id="s6">
+  <span class="step-num">06 / Deep dives</span>
+  <h2>Deep dive on 3 critical components</h2>
+  <p class="lead">For each: the problem, the naive solution, why it fails, and what is used at scale. Raise these before the interviewer asks.</p>
+
+  <div class="dive"><div class="dive-head"><span class="tag">01</span> Distributed rate limiting — accurate limits without a network hop per request</div>
+  <div class="dive-body">
+    <p><strong>The problem:</strong> A client may make 100 requests/sec. Requests hit any of 50 nodes, so the limit must be shared, yet checking a central store 1M times per second adds latency and risk.</p>
+    <div class="dl fail">Naive solution: per-node counters, or one central Redis call per request</div>
+<pre>limit per node = 100 / 50 nodes      (uneven traffic breaks it)
+INCR rl:{client}  on every request   (1M Redis ops/sec, +1-2 ms each)</pre>
+    <p><strong>Why it fails:</strong> Local-only counters are wrong when load balancing is uneven, and a fixed window allows a 2× burst at the boundary. A remote call per request puts Redis on the critical path, so a Redis blip becomes a gateway outage.</p>
+    <div class="dl fix">Real solution — token bucket with local batching and async sync</div>
+<pre>1. Algorithm: token bucket. Refill rate = limit, capacity = burst.
+   Allows bursts, smooth over time, O(1) state per client.
+
+2. Each node holds a local bucket and requests a "lease" of tokens
+   from Redis (e.g. 10% of the limit) with an atomic Lua script:
+     tokens = min(cap, tokens + elapsed*rate); grant = min(want, tokens)
+
+3. Requests consume local tokens with no network call. When the
+   lease runs low, refill asynchronously before it hits zero.
+
+4. Accuracy trades against cost: bigger leases = fewer calls but
+   more over-admission. Typically within a few percent.
+
+5. Redis down? Fail open with conservative local limits for
+   most APIs; fail closed for abuse-sensitive ones (login, OTP).
+
+6. Return headers: X-RateLimit-Limit, -Remaining, Retry-After.
+
+<span class="d">Sliding window counter (current + weighted previous window)
+is a good alternative when you need smoother fairness than fixed windows.</span></pre>
+    <div class="insight insight-green">The key insight: rate limiting is approximate by design. Spend accuracy only where it matters, and keep the remote store off the per-request path.</div>
+  </div></div>
+
+  <div class="dive"><div class="dive-head"><span class="tag">02</span> Auth and routing — decide fast, change safely</div>
+  <div class="dive-body">
+    <p><strong>The problem:</strong> Every request needs identity verified and a destination chosen in well under a millisecond, while hundreds of teams change routes and keys at any time.</p>
+    <div class="dl fail">Naive solution — call the auth service and config DB per request</div>
+<pre>request → POST /auth/verify → SELECT * FROM routes WHERE path LIKE ... → proxy</pre>
+    <p><strong>Why it fails:</strong> Two network hops and a database query on the hot path add tens of milliseconds, and the auth service and DB become single points of failure at 1M req/sec. Linear or regex scans over 10K routes are slow too.</p>
+    <div class="dl fix">Real solution — local verification, in-memory route table, versioned config push</div>
+<pre>1. JWT: verify signature with cached public keys (JWKS), check exp,
+   aud and scopes locally. No network call. Rotate keys by kid.
+
+2. API keys: store only a hash. Cache key → client in an LRU with a
+   short TTL (30-60s). A miss goes to the auth service once, then
+   is cached, including negative results to stop key guessing.
+
+3. Revocation: short token lifetimes plus a small pushed deny-list
+   for emergency revokes. Cached keys expire within seconds.
+
+4. Routing: compile routes into a radix trie keyed by host, then
+   path segments. Lookup is O(path length), independent of route count.
+
+5. Config propagation: control plane validates, versions and
+   publishes a snapshot. Nodes watch (etcd / xDS), build the new
+   table off to the side, then atomically swap the pointer.
+   Bad config? Reject it, keep the last good version.
+
+6. Roll out routing changes gradually: canary by weight
+   (1% → 10% → 100%) with automatic rollback on error rate.
+
+<span class="d">Validate with a dry run before publish: no duplicate paths,
+upstream exists, timeouts sane, regexes safe from backtracking.</span></pre>
+    <div class="insight insight-amber">Treat gateway config like code: versioned, validated, canaried and instantly reversible. A bad route push can cause a bigger outage than a bad deploy.</div>
+  </div></div>
+
+  <div class="dive"><div class="dive-head"><span class="tag">03</span> Resilience — stop one slow service from taking everything down</div>
+  <div class="dive-body">
+    <p><strong>The problem:</strong> One upstream starts responding in 30 seconds. Requests pile up, workers and connections are exhausted, and unrelated APIs through the same gateway start failing too.</p>
+    <div class="dl fail">Naive solution — shared worker pool, no timeouts, retry everything</div>
+<pre>proxy_pass upstream;      # default timeouts, unlimited retries, one shared pool</pre>
+    <p><strong>Why it fails:</strong> Slow calls hold resources, so capacity drains. Aggressive retries multiply load on an already struggling service (a retry storm) and turn a brownout into an outage.</p>
+    <div class="dl fix">Real solution — timeouts, budgets, breakers and bulkheads</div>
+<pre>1. Timeouts everywhere: connect (~100 ms), per-try and overall
+   deadline per route. Propagate the remaining deadline downstream.
+
+2. Retries only for idempotent calls, max 1-2, with jittered backoff
+   and a retry budget (e.g. retries ≤ 10% of base traffic).
+
+3. Circuit breaker per upstream: closed → open when error rate or
+   latency passes a threshold → half-open probes → closed again.
+   Open circuit fails fast (503) instead of waiting.
+
+4. Bulkheads: cap concurrent connections per upstream, so one bad
+   service cannot use the whole pool.
+
+5. Outlier detection: eject instances with repeated failures from the
+   load-balancing pool for a cool-off period. Active health checks too.
+
+6. Load shedding: when the gateway itself is saturated, drop low
+   priority traffic early with 503 and keep critical paths alive.
+
+7. Graceful degradation: serve stale cached responses for safe GETs
+   when the upstream is down.
+
+<span class="d">Use power-of-two-choices or least-request load balancing, not
+plain round robin, so slow instances naturally receive less traffic.</span></pre>
+    <div class="insight insight-green">Fail fast and fail small. A rejected request costs microseconds; a hanging request costs a worker, a connection and everyone else’s latency.</div>
+  </div></div>
+</section>
+
+<section class="step" id="s7">
+  <span class="step-num">07 / Tradeoffs &amp; alternatives</span>
+  <h2>What we did NOT choose and why</h2>
+  <h3>Rejected alternatives</h3>
+  <div class="tw"><table>
+    <tr><th>Alternative</th><th>Why rejected</th></tr>
+    <tr><td>Auth service call per request</td><td>Adds a network hop and a dependency to every call; local JWT verification is far cheaper.</td></tr>
+    <tr><td>Central counter for every rate limit check</td><td>Puts Redis on the critical path; local buckets with leases keep it off.</td></tr>
+    <tr><td>Fixed-window counters</td><td>Allow 2× bursts at window edges; token bucket or sliding window is smoother.</td></tr>
+    <tr><td>Reading config from the DB per request</td><td>Too slow and fragile; in-memory snapshots with push updates are standard.</td></tr>
+    <tr><td>One shared gateway for all traffic types</td><td>Noisy neighbours; separate public, partner and internal gateways isolate failures.</td></tr>
+    <tr><td>Business logic inside the gateway</td><td>Becomes a deployment bottleneck; keep it to cross-cutting concerns only.</td></tr>
+    <tr><td>Sticky sessions at the gateway</td><td>Hurts balancing and failover; keep services stateless instead.</td></tr>
+  </table></div>
+  <h3>What breaks at 10× scale and how we fix it</h3>
+  <div class="dive" style="margin-top:16px"><div class="dive-body">
+    <div class="dl fail">Problem: DDoS or a single abusive client</div>
+    <p>A flood of requests saturates nodes before limits can help, and attackers rotate API keys and IPs.</p>
+    <div class="dl fix">Fix</div>
+    <p>Absorb at the edge with CDN and WAF, apply cheap IP and connection limits before auth, add per-tenant quotas, and use autoscaling plus load shedding as the last line.</p>
+  </div></div>
+  <div class="dive"><div class="dive-body">
+    <div class="dl fail">Problem: TLS handshake storms</div>
+    <p>After a node restart or deploy, thousands of clients reconnect at once and CPU spikes on handshakes.</p>
+    <div class="dl fix">Fix</div>
+    <p>Session resumption and TLS 1.3, long-lived HTTP/2 connections, connection draining on deploys, and terminating TLS at the L4 or edge tier with hardware offload when needed.</p>
+  </div></div>
+  <div class="dive"><div class="dive-body">
+    <div class="dl fail">Problem: Control plane outage or bad config push</div>
+    <p>Admins cannot change routes, or a faulty config reaches every node at once.</p>
+    <div class="dl fix">Fix</div>
+    <p>Nodes run on the last good snapshot, so the control plane is off the request path. Staged rollout by node group, schema and dry-run validation, one-click rollback to a previous version.</p>
+  </div></div>
+  <div class="dive"><div class="dive-body">
+    <div class="dl fail">Problem: Regional outage</div>
+    <p>An entire region’s gateway fleet or Redis becomes unavailable.</p>
+    <div class="dl fix">Fix</div>
+    <p>Active-active regions behind global DNS with health-based failover, independent Redis per region (limits become per-region approximations), and config replicated across regions.</p>
+  </div></div>
+</section>
+
+<section class="step" id="s8">
+  <span class="step-num">08 / Summary</span>
+  <h2>Cheat sheet</h2>
+  <p class="lead">The things worth remembering before walking into the room.</p>
+  <div class="cheat">
+    <div><h4>Key numbers</h4><p>1M req/sec · ~40K/sec per node · 50-75 nodes · &lt;10 ms p99 overhead · config live in &lt;5s · 99.99%</p></div>
+    <div><h4>Key components</h4><p>L4 LB · stateless gateway nodes · control plane + config DB · Redis · service discovery · Kafka</p></div>
+    <div><h4>Request pipeline</h4><p>TLS → auth → rate limit → route → transform → load balance → proxy → async logging</p></div>
+    <div><h4>Rate limiting</h4><p>Token bucket, local leases from Redis via Lua, async refill, fail open or closed per API.</p></div>
+    <div><h4>Auth</h4><p>Local JWT verify with cached JWKS, hashed API keys in an LRU, short TTLs plus a deny-list.</p></div>
+    <div><h4>Routing</h4><p>Radix trie in memory, atomic snapshot swap, canary weights, last-known-good fallback.</p></div>
+    <div><h4>Resilience</h4><p>Timeouts, retry budgets, circuit breakers, bulkheads, outlier ejection, load shedding.</p></div>
+    <div><h4>Key tradeoffs</h4><p>Accuracy vs latency in limits · fail open vs closed · central vs per-team gateways · features vs added latency.</p></div>
+    <div><h4>Hardest part</h4><p>Staying on the critical path of all traffic with near-zero latency and near-perfect availability.</p></div>
+    <div><h4>Interview time map</h4><p>0–3 min: clarify · 3–7: requirements + estimation · 7–16: HLD + flow · 16–23: config + data · 23–29: deep dives · 29–30: tradeoffs</p></div>
+  </div>
+  <h3>Rate limiting algorithms: at a glance</h3>
+  <div class="tw"><table>
+    <tr><th>Algorithm</th><th>How it works</th><th>Strength</th><th>Weakness</th></tr>
+    <tr><td>Fixed window</td><td>Counter per time window</td><td>Simplest, cheap</td><td>2× burst at boundaries</td></tr>
+    <tr><td>Sliding window log</td><td>Store a timestamp per request</td><td>Exact</td><td>High memory</td></tr>
+    <tr><td>Sliding window counter</td><td>Weighted current and previous windows</td><td>Smooth, low memory</td><td>Approximate</td></tr>
+    <tr><td>Token bucket</td><td>Tokens refill at a steady rate</td><td>Allows bursts, O(1)</td><td>Needs tuning of burst size</td></tr>
+    <tr><td>Leaky bucket</td><td>Queue drained at a constant rate</td><td>Smooth output rate</td><td>Adds queueing delay</td></tr>
+  </table></div>
+</section>
+
+</main>
+</div>
+
+<footer><span>System Design Case Study — API Gateway · FAANG interview prep</span><span>Written as a high-level design walkthrough</span></footer>
+
+<script>
+const links=document.querySelectorAll('nav.toc a'),secs=document.querySelectorAll('section.step');
+const obs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){const id=e.target.id;links.forEach(l=>l.classList.toggle('active',l.getAttribute('href')==='#'+id))}})},{rootMargin:'-20% 0px -70% 0px'});
+secs.forEach(s=>obs.observe(s));
+</script>
+</body>
+</html>
