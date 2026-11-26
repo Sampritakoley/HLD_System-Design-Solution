@@ -11,7 +11,7 @@ This repository is designed to help software engineers **master System Design in
 👉 **[HLD Question List](https://sampritakoley.github.io/HLD_System-Design-Solution/)**
 
 
-**🔗 Solutions** <br>
+**🔗 Solutions** 
 <sub>👉 <a href="https://sampritakoley.github.io/HLD_System-Design-Solution/PhotoSharingSysDesign/">[1] Design Instagram / Photo Sharing Platform</a></sub><br>
 <sub>👉 <a href="https://sampritakoley.github.io/HLD_System-Design-Solution/TwitterNewsFeed/">[2] Design Twitter/X News Feed Platform</a></sub><br>
 <sub>👉 <a href="https://sampritakoley.github.io/HLD_System-Design-Solution/FacebookNewsFeed/">[3] Design Facebook News Feed</a></sub><br>
