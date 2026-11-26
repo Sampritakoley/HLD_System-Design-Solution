@@ -31,8 +31,8 @@ Api_Gateway
 <sub>👉 <a href="https://sampritakoley.github.io/HLD_System-Design-Solution/URL-ShortnerSystemDesign/">[15] Design URL-Shortner System</a></sub><br>
 <sub>👉 <a href="https://sampritakoley.github.io/HLD_System-Design-Solution/VideoConferencingPlatform/">[16] Design Video Conferencing Platform [ZOOM]</a></sub><br>
 <sub>👉 <a href="https://sampritakoley.github.io/HLD_System-Design-Solution/RateLimiter/">[17] Design Rate Limiter</a></sub><br>
-<sub>👉 <a href="https://sampritakoley.github.io/HLD_System-Design-Solution/Api_Gateway/">[17] Design Api Gateway</a></sub><br>
-<sub>👉 <a href="https://sampritakoley.github.io/HLD_System-Design-Solution/WhatsappSystemDesign/">[18] Design WhatsApp / Messaging App</a></sub>
+<sub>👉 <a href="https://sampritakoley.github.io/HLD_System-Design-Solution/Api_Gateway/">[18] Design Api Gateway</a></sub><br>
+<sub>👉 <a href="https://sampritakoley.github.io/HLD_System-Design-Solution/WhatsappSystemDesign/">[19] Design WhatsApp / Messaging App</a></sub>
 ---
 
 ---
